@@ -1,42 +1,44 @@
 import SwiftUI
-import AppKit
 
 struct AppColors {
-    static let background = Color.dynamic(lightHex: 0xF7F7F8, darkHex: 0x1E1F24)
-    static let chatBackground = Color.dynamic(lightHex: 0xFFFFFF, darkHex: 0x2A2C32)
-    static let sidebarBackground = Color.dynamic(lightHex: 0xECECF1, darkHex: 0x1A1B20)
-    static let sidebarBorder = Color.dynamic(lightHex: 0xD7D9E0, darkHex: 0x2E3036)
-    static let sidebarIcon = Color.dynamic(lightHex: 0x6B6C74, darkHex: 0xA8A9B4)
-    static let userBubble = Color.dynamic(lightHex: 0xDCE8FF, darkHex: 0x18314F)
-    static let assistantBubble = Color.dynamic(lightHex: 0xF5F7FA, darkHex: 0x2F3036)
-    static let codeBackground = Color.dynamic(lightHex: 0xF3F4F6, darkHex: 0x1F2024)
-    static let divider = Color.dynamic(lightHex: 0xE4E6EB, darkHex: 0x2B2C33)
-    static let accent = Color.dynamic(lightHex: 0x10A37F, darkHex: 0x10A37F)
-    static let subtleText = Color.dynamic(lightHex: 0x71727B, darkHex: 0xB1B2C0)
-    static let timestamp = Color.dynamic(lightHex: 0x999AA3, darkHex: 0x8A8B96)
-    static let controlBackground = Color.dynamic(lightHex: 0xFFFFFF, darkHex: 0x2C2E36)
-    static let controlBorder = Color.dynamic(lightHex: 0xD8DAE5, darkHex: 0x3A3C47)
-    static let controlMuted = Color.dynamic(lightHex: 0xF3F4FA, darkHex: 0x2A2B34)
-    static let professionalViolet = Color.dynamic(lightHex: 0x6D5BD0, darkHex: 0x8F82FF)
-    static let professionalVioletSoft = Color.dynamic(lightHex: 0xF1EEFF, darkHex: 0x2C2650)
+    // Background colors (using light theme values for now)
+    static let background = Color(hex: 0xF7F7F8)
+    static let chatBackground = Color(hex: 0xFFFFFF)
+    static let sidebarBackground = Color(hex: 0xECECF1)
+    static let codeBackground = Color(hex: 0xF3F4F6)
+
+    // UI element colors
+    static let sidebarBorder = Color(hex: 0xD7D9E0)
+    static let sidebarIcon = Color(hex: 0x6B6C74)
+    static let divider = Color(hex: 0xE4E6EB)
+    static let accent = Color(hex: 0x10A37F)
+
+    // Text colors
+    static let subtleText = Color(hex: 0x71727B)
+    static let timestamp = Color(hex: 0x999AA3)
+
+    // Control colors
+    static let controlBackground = Color(hex: 0xFFFFFF)
+    static let controlBorder = Color(hex: 0xD8DAE5)
+    static let controlMuted = Color(hex: 0xF3F4FA)
+
+    // Message bubble colors
+    static let userBubble = Color(hex: 0xDCE8FF)
+    static let assistantBubble = Color(hex: 0xF5F7FA)
+
+    // Brand colors
+    static let professionalViolet = Color(hex: 0x6D5BD0)
+    static let professionalVioletSoft = Color(hex: 0xF1EEFF)
 }
 
 private extension Color {
-    static func dynamic(lightHex: UInt32, darkHex: UInt32) -> Color {
-        Color(nsColor: NSColor(name: nil, dynamicProvider: { appearance in
-            let bestMatch = appearance.bestMatch(from: [.darkAqua, .vibrantDark, .aqua, .vibrantLight])
-            let isDark = bestMatch == .darkAqua || bestMatch == .vibrantDark
-            let hex = isDark ? darkHex : lightHex
-            return NSColor(rgb: hex)
-        }))
-    }
-}
-
-private extension NSColor {
-    convenience init(rgb: UInt32, alpha: CGFloat = 1.0) {
-        let red = CGFloat((rgb >> 16) & 0xFF) / 255.0
-        let green = CGFloat((rgb >> 8) & 0xFF) / 255.0
-        let blue = CGFloat(rgb & 0xFF) / 255.0
-        self.init(srgbRed: red, green: green, blue: blue, alpha: alpha)
+    init(hex: UInt32, alpha: Double = 1.0) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255.0,
+            green: Double((hex >> 8) & 0xFF) / 255.0,
+            blue: Double(hex & 0xFF) / 255.0,
+            opacity: alpha
+        )
     }
 }

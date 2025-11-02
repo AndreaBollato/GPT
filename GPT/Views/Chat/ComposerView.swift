@@ -137,16 +137,16 @@ struct ComposerView: View {
     }
 }
 
-struct ComposerView_Previews: PreviewProvider {
-    static var previews: some View {
-        StatefulPreviewWrapper("") { binding in
-            StructPreviewContainer {
-                ComposerView(text: binding, onSubmit: {}, onStop: {})
-                    .padding()
-            }
-        }
-    }
-}
+// struct ComposerView_Previews: PreviewProvider {
+//     static var previews: some View {
+//         StatefulPreviewWrapper("") { binding in
+//             StructPreviewContainer {
+//                 ComposerView(text: binding, onSubmit: {}, onStop: {})
+//                     .padding()
+//             }
+//         }
+//     }
+// }
 
 // MARK: - Helpers for previews
 

@@ -111,14 +111,14 @@ struct ChatView: View {
     }
 }
 
-struct ChatView_Previews: PreviewProvider {
-    static var previews: some View {
-        let state = UIState()
-        return Group {
-            if let conversation = state.conversations.first {
-                ChatView(conversation: conversation)
-                    .environmentObject(state)
-            }
-        }
-    }
-}
+// struct ChatView_Previews: PreviewProvider {
+//     static var previews: some View {
+//         let state = UIState()
+//         return Group {
+//             if let conversation = state.conversations.first {
+//                 ChatView(conversation: conversation)
+//                     .environmentObject(state)
+//             }
+//         }
+//     }
+// }

@@ -47,8 +47,10 @@ final class UIState: ObservableObject {
 
     func loadConversations() {
         conversations = store.fetchConversations()
-        guard selectedConversationID == nil else { return }
-        selectedConversationID = conversations.first?.id
+        // Non selezionare automaticamente la prima conversazione all'avvio
+        // Questo permette di mostrare la homepage invece di aprire una conversazione
+        // guard selectedConversationID == nil else { return }
+        // selectedConversationID = conversations.first?.id
     }
 
     func selectConversation(_ conversationID: Conversation.ID?) {

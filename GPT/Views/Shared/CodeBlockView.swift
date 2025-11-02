@@ -1,11 +1,8 @@
 import SwiftUI
-import AppKit
 
 struct CodeBlockView: View {
     let code: String
     var language: String?
-
-    @State private var isCopied: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppConstants.Spacing.sm) {
@@ -15,14 +12,6 @@ struct CodeBlockView: View {
                     .foregroundColor(AppColors.subtleText)
                     .textCase(.uppercase)
                 Spacer()
-                Button(action: copyToPasteboard) {
-                    Label(isCopied ? "Copied" : "Copy", systemImage: isCopied ? "checkmark" : "doc.on.doc")
-                        .labelStyle(.iconOnly)
-                        .frame(width: 24, height: 24)
-                }
-                .buttonStyle(.plain)
-                .foregroundColor(isCopied ? AppColors.accent : AppColors.subtleText)
-                .help(isCopied ? "Copied" : "Copy to clipboard")
             }
 
             ScrollView(.horizontal, showsIndicators: false) {
@@ -41,22 +30,6 @@ struct CodeBlockView: View {
     private var languageLabel: String {
         guard let language, !language.isEmpty else { return "code" }
         return language.uppercased()
-    }
-
-    private func copyToPasteboard() {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(code, forType: .string)
-
-        withAnimation(AppConstants.Animation.easeInOut) {
-            isCopied = true
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-            withAnimation(AppConstants.Animation.easeInOut) {
-                isCopied = false
-            }
-        }
     }
 }
 

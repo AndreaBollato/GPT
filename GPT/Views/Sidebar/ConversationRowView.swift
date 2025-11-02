@@ -81,6 +81,9 @@ struct ConversationRowView: View {
         .onHover { hovering in
             isHovering = hovering
         }
+        .onTapGesture {
+            uiState.selectConversation(conversation.id)
+        }
         .onTapGesture(count: 2) {
             startRenaming()
         }
@@ -103,12 +106,12 @@ struct ConversationRowView: View {
                 uiState.deleteConversation(id: conversation.id)
             }
         }
-        .onChange(of: isRenaming) { newValue in
+        .onChange(of: isRenaming) { _, newValue in
             if newValue {
                 renameText = conversation.title
             }
         }
-        .onChange(of: conversation.title) { newValue in
+        .onChange(of: conversation.title) { _, newValue in
             if !isRenaming {
                 renameText = newValue
             }

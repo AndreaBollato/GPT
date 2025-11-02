@@ -35,8 +35,8 @@ struct SidebarView: View {
                 .font(.headline)
             Spacer()
             Button(action: uiState.beginNewChat) {
-                Label("Nuova chat", systemImage: "plus")
-                    .labelStyle(.iconOnly)
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .semibold))
             }
             .buttonStyle(.plain)
             .foregroundColor(AppColors.accent)

@@ -125,10 +125,10 @@ struct ChatView: View {
             .onAppear {
                 scrollToBottom(proxy: proxy, animated: false)
             }
-            .onChange(of: conversation.messages.count) { _ in
+            .onChange(of: conversation.messages.count) {
                 scrollToBottom(proxy: proxy)
             }
-            .onChange(of: uiState.isAssistantTyping) { _ in
+            .onChange(of: uiState.isAssistantTyping) {
                 scrollToBottom(proxy: proxy)
             }
         }

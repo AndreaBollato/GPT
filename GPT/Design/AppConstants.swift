@@ -24,8 +24,8 @@ enum AppConstants {
     }
 
     enum Animation {
-        static let easeInOut: Animation = .easeInOut(duration: 0.25)
-        static let smoothSpring: Animation = .interactiveSpring(response: 0.3, dampingFraction: 0.8, blendDuration: 0.2)
+        static let easeInOut: SwiftUI.Animation = SwiftUI.Animation.easeInOut(duration: 0.25)
+        static let smoothSpring: SwiftUI.Animation = SwiftUI.Animation.interactiveSpring(response: 0.3, dampingFraction: 0.8, blendDuration: 0.2)
     }
 
     enum KeyboardShortcuts {

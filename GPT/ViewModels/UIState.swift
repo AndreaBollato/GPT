@@ -26,11 +26,15 @@ final class UIState: ObservableObject {
 
     private let store: ConversationsUIStore
 
-    init(store: ConversationsUIStore = MockConversationsStore()) {
+    init(store: ConversationsUIStore) {
         self.store = store
         self.availableModels = store.availableModels
         self.activeModelId = store.availableModels.first?.id ?? "gpt-4"
         loadConversations()
+    }
+
+    convenience init() {
+        self.init(store: MockConversationsStore())
     }
 
     var pinnedConversations: [Conversation] {

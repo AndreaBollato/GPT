@@ -45,30 +45,55 @@ struct SidebarView: View {
     }
 
     private var searchField: some View {
-        TextField("Cerca conversazioni", text: $uiState.searchQuery)
-            .textFieldStyle(.roundedBorder)
-            .focused(resolvedSearchFocus)
-            .overlay(alignment: .trailing) {
-                if !uiState.searchQuery.isEmpty {
-                    Button {
-                        uiState.searchQuery = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(AppColors.subtleText)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.trailing, AppConstants.Spacing.xs)
+        let isFocused = resolvedSearchFocus.wrappedValue
+
+        return HStack(spacing: AppConstants.Spacing.sm) {
+            Image(systemName: "magnifyingglass")
+                .imageScale(.medium)
+                .foregroundStyle(isFocused ? AppColors.accent : AppColors.subtleText)
+
+            TextField("Cerca conversazioni", text: $uiState.searchQuery)
+                .textFieldStyle(.plain)
+                .focused(resolvedSearchFocus)
+
+            if !uiState.searchQuery.isEmpty {
+                Button {
+                    uiState.searchQuery = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .imageScale(.medium)
+                        .foregroundStyle(AppColors.subtleText)
                 }
+                .buttonStyle(.plain)
+                .transition(.scale.combined(with: .opacity))
             }
+        }
+        .padding(.vertical, AppConstants.Spacing.sm + 2)
+        .padding(.horizontal, AppConstants.Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: AppConstants.Layout.cardCornerRadius, style: .continuous)
+                .fill(isFocused ? AppColors.controlBackground : AppColors.controlMuted)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: AppConstants.Layout.cardCornerRadius, style: .continuous)
+                .stroke(isFocused ? AppColors.accent : AppColors.controlBorder, lineWidth: isFocused ? 1.5 : 1)
+        )
+        .shadow(color: isFocused ? AppColors.accent.opacity(0.12) : .clear, radius: isFocused ? 10 : 0, x: 0, y: 4)
+        .animation(AppConstants.Animation.easeInOut, value: isFocused)
+        .animation(AppConstants.Animation.easeInOut, value: uiState.searchQuery.isEmpty)
     }
 
     private var conversationList: some View {
-        List(selection: $uiState.selectedConversationID) {
+        List {
             if !uiState.pinnedConversations.isEmpty {
                 Section("Pinned") {
                     ForEach(uiState.pinnedConversations) { conversation in
                         ConversationRowView(conversation: conversation, isSelected: uiState.selectedConversationID == conversation.id)
                             .tag(conversation.id)
+                            .listRowInsets(EdgeInsets(top: AppConstants.Spacing.xs,
+                                                     leading: AppConstants.Spacing.sm,
+                                                     bottom: AppConstants.Spacing.xs,
+                                                     trailing: AppConstants.Spacing.sm))
                             .listRowBackground(Color.clear)
                     }
                 }
@@ -78,11 +103,17 @@ struct SidebarView: View {
                 ForEach(uiState.recentConversations) { conversation in
                     ConversationRowView(conversation: conversation, isSelected: uiState.selectedConversationID == conversation.id)
                         .tag(conversation.id)
+                        .listRowInsets(EdgeInsets(top: AppConstants.Spacing.xs,
+                                                 leading: AppConstants.Spacing.sm,
+                                                 bottom: AppConstants.Spacing.xs,
+                                                 trailing: AppConstants.Spacing.sm))
                         .listRowBackground(Color.clear)
                 }
             }
         }
         .listStyle(.sidebar)
+        .listSectionSeparator(.hidden)
+        .listRowSeparator(.hidden)
         .scrollContentBackground(.hidden)
         .background(AppColors.sidebarBackground)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

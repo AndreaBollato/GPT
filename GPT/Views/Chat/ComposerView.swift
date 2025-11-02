@@ -121,10 +121,6 @@ struct ComposerView: View {
             }
 
             Spacer()
-
-            Text("Cmd+Invio per inviare")
-                .font(AppTypography.badge)
-                .foregroundColor(AppColors.subtleText)
         }
     }
 

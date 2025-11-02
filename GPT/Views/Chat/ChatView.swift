@@ -50,7 +50,7 @@ struct ChatView: View {
                 statusLine
             }
 
-            Spacer()
+            Spacer(minLength: AppConstants.Spacing.md)
 
             if uiState.isStreamingResponse {
                 Button(action: uiState.stopStreaming) {
@@ -59,14 +59,6 @@ struct ChatView: View {
                 .buttonStyle(AppButtonStyle(variant: .destructive))
                 .keyboardShortcut(AppConstants.KeyboardShortcuts.stopStreaming)
             }
-
-            Button {
-                uiState.beginNewChat()
-            } label: {
-                Label("Nuova chat", systemImage: "plus")
-            }
-            .buttonStyle(AppButtonStyle(variant: .secondary))
-            .keyboardShortcut(AppConstants.KeyboardShortcuts.newConversation)
 
             Menu {
                 Button("Pulisci chat") {
@@ -81,16 +73,22 @@ struct ChatView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.system(size: 16, weight: .semibold))
-                    .padding(AppConstants.Spacing.sm)
-                    .background(AppColors.controlBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(AppColors.subtleText)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        RoundedRectangle(cornerRadius: AppConstants.Layout.cardCornerRadius, style: .continuous)
+                            .fill(AppColors.controlMuted)
+                    )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: AppConstants.Layout.cardCornerRadius, style: .continuous)
                             .stroke(AppColors.controlBorder, lineWidth: 1)
                     )
+                    .contentShape(Rectangle())
             }
+            .menuIndicator(.hidden)
             .menuStyle(.borderlessButton)
+            .padding(.trailing, -AppConstants.Spacing.sm)
         }
         .padding(.horizontal, AppConstants.Spacing.xl)
         .padding(.vertical, AppConstants.Spacing.lg)

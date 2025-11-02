@@ -87,7 +87,8 @@ struct ConversationRowView: View {
         .padding(.horizontal, AppConstants.Spacing.sm)
         .background(rowBackground)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .contentShape(Rectangle())
+        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .compositingGroup()
         .onHover { hovering in
             isHovering = hovering
         }

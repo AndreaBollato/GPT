@@ -29,9 +29,12 @@ struct AppRootView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .automatic) {
-            Button(action: uiState.beginNewChat) {
+            Button {
+                uiState.beginNewChat()
+            } label: {
                 Label("Nuova chat", systemImage: "plus")
             }
+            .buttonStyle(AppButtonStyle(variant: .secondary))
             .keyboardShortcut(AppConstants.KeyboardShortcuts.newConversation)
 
             Button(action: uiState.stopStreaming) {

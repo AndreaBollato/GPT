@@ -4,6 +4,8 @@ struct ChatView: View {
     @EnvironmentObject private var uiState: UIState
     let conversation: Conversation
 
+    var onSearchTapped: () -> Void = {}
+
     @FocusState private var composerFocused: Bool
 
     private var draftBinding: Binding<String> {
@@ -15,7 +17,27 @@ struct ChatView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            TopBarView(
+                title: conversation.title,
+                status: TopBarView.Status(
+                    text: uiState.isStreamingResponse ? "Risposta in corso" : "Pronto",
+                    color: uiState.isStreamingResponse ? AppColors.accent : AppColors.subtleText
+                ),
+                selectedModelId: conversation.modelId,
+                onSelectModel: { modelId in
+                    uiState.updateModel(for: conversation.id, to: modelId)
+                },
+                onNewChat: uiState.beginNewChat,
+                onSearch: onSearchTapped,
+                onDuplicate: {
+                    uiState.duplicateConversation(id: conversation.id)
+                },
+                onDelete: {
+                    uiState.deleteConversation(id: conversation.id)
+                },
+                isStreaming: uiState.isStreamingResponse,
+                onStopStreaming: uiState.stopStreaming
+            )
             Divider()
             messages
             Divider()
@@ -34,75 +56,6 @@ struct ChatView: View {
         .background(AppColors.background)
         .onAppear {
             composerFocused = true
-        }
-    }
-
-    private var header: some View {
-        HStack(alignment: .center, spacing: AppConstants.Spacing.lg) {
-            ModelPickerView(selectedModelId: conversation.modelId) { modelId in
-                uiState.updateModel(for: conversation.id, to: modelId)
-            }
-
-            VStack(alignment: .leading, spacing: AppConstants.Spacing.xxs) {
-                Text(conversation.title)
-                    .font(.title3)
-                    .lineLimit(1)
-                statusLine
-            }
-
-            Spacer(minLength: AppConstants.Spacing.md)
-
-            if uiState.isStreamingResponse {
-                Button(action: uiState.stopStreaming) {
-                    Label("Stop", systemImage: "stop.fill")
-                }
-                .buttonStyle(AppButtonStyle(variant: .destructive))
-                .keyboardShortcut(AppConstants.KeyboardShortcuts.stopStreaming)
-            }
-
-            Menu {
-                Button("Pulisci chat") {
-                    uiState.clearConversation(id: conversation.id)
-                }
-                Button("Duplica") {
-                    uiState.duplicateConversation(id: conversation.id)
-                }
-                Divider()
-                Button("Elimina", role: .destructive) {
-                    uiState.deleteConversation(id: conversation.id)
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(AppColors.subtleText)
-                    .frame(width: 32, height: 32)
-                    .background(
-                        RoundedRectangle(cornerRadius: AppConstants.Layout.cardCornerRadius, style: .continuous)
-                            .fill(AppColors.controlMuted)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: AppConstants.Layout.cardCornerRadius, style: .continuous)
-                            .stroke(AppColors.controlBorder, lineWidth: 1)
-                    )
-                    .contentShape(Rectangle())
-            }
-            .menuIndicator(.hidden)
-            .menuStyle(.borderlessButton)
-            .padding(.trailing, -AppConstants.Spacing.sm)
-        }
-        .padding(.horizontal, AppConstants.Spacing.xl)
-        .padding(.vertical, AppConstants.Spacing.lg)
-        .background(AppColors.background)
-    }
-
-    private var statusLine: some View {
-        HStack(spacing: AppConstants.Spacing.xs) {
-            Circle()
-                .fill(uiState.isStreamingResponse ? AppColors.accent : AppColors.subtleText)
-                .frame(width: 8, height: 8)
-            Text(uiState.isStreamingResponse ? "Risposta in corso" : "Pronto")
-                .font(AppTypography.badge)
-                .foregroundColor(AppColors.subtleText)
         }
     }
 

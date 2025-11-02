@@ -4,38 +4,59 @@ struct HomeView: View {
     @EnvironmentObject private var uiState: UIState
     @FocusState private var composerFocused: Bool
 
+    var onSearchTapped: () -> Void = {}
+
     private let prompts: [SuggestedPrompt] = SuggestedPrompt.samples
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(spacing: AppConstants.Spacing.xxl) {
-                    hero
-                    suggestedPrompts
-                }
-                .padding(.top, 80)
-                .padding(.bottom, 220)
-                .frame(maxWidth: AppConstants.Layout.detailMaxWidth)
-                .frame(maxWidth: .infinity)
-            }
-
-            ComposerView(
-                text: $uiState.homeDraft,
-                placeholder: "Inizia una nuova conversazione",
+        VStack(spacing: 0) {
+            TopBarView(
+                title: nil,
+                status: nil,
+                selectedModelId: uiState.activeModelId,
+                onSelectModel: { modelId in
+                    uiState.setActiveModel(modelId)
+                },
+                onNewChat: uiState.beginNewChat,
+                onSearch: onSearchTapped,
+                onDuplicate: nil,
+                onDelete: nil,
                 isStreaming: uiState.isStreamingResponse,
-                onSubmit: submitFromHome,
-                onStop: uiState.stopStreaming,
-                focus: $composerFocused
+                onStopStreaming: uiState.stopStreaming
             )
-            .padding(.horizontal, 80)
-            .padding(.vertical, AppConstants.Spacing.xl)
-            .background(
-                LinearGradient(
-                    colors: [AppColors.background.opacity(0.95), AppColors.background.opacity(0.6), .clear],
-                    startPoint: .bottom,
-                    endPoint: .top
+
+            Divider()
+
+            ZStack(alignment: .bottom) {
+                ScrollView {
+                    VStack(spacing: AppConstants.Spacing.xxl) {
+                        hero
+                        suggestedPrompts
+                    }
+                    .padding(.top, 48)
+                    .padding(.bottom, 220)
+                    .frame(maxWidth: AppConstants.Layout.detailMaxWidth)
+                    .frame(maxWidth: .infinity)
+                }
+
+                ComposerView(
+                    text: $uiState.homeDraft,
+                    placeholder: "Inizia una nuova conversazione",
+                    isStreaming: uiState.isStreamingResponse,
+                    onSubmit: submitFromHome,
+                    onStop: uiState.stopStreaming,
+                    focus: $composerFocused
                 )
-            )
+                .padding(.horizontal, 80)
+                .padding(.vertical, AppConstants.Spacing.xl)
+                .background(
+                    LinearGradient(
+                        colors: [AppColors.background.opacity(0.95), AppColors.background.opacity(0.6), .clear],
+                        startPoint: .bottom,
+                        endPoint: .top
+                    )
+                )
+            }
         }
         .background(AppColors.background)
         .onAppear {

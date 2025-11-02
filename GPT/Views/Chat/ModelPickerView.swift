@@ -12,11 +12,13 @@ struct ModelPickerView: View {
 
     var body: some View {
         Menu {
-            ForEach(uiState.availableModels) { model in
-                Button(action: { onSelect(model.id) }) {
-                    menuRow(for: model)
+            Section(header: menuHeader) {
+                ForEach(uiState.availableModels) { model in
+                    Button(action: { onSelect(model.id) }) {
+                        menuRow(for: model)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         } label: {
             pickerLabel
@@ -27,13 +29,15 @@ struct ModelPickerView: View {
 
     private func menuRow(for model: ChatModel) -> some View {
         HStack(alignment: .center, spacing: AppConstants.Spacing.md) {
+            modelBadge(for: model)
+
             VStack(alignment: .leading, spacing: AppConstants.Spacing.xs) {
                 Text(model.displayName)
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.primary)
+                    .foregroundStyle(Color.primary)
                 Text(model.description)
                     .font(.system(size: 12, weight: .regular))
-                    .foregroundColor(AppColors.subtleText)
+                    .foregroundStyle(AppColors.subtleText)
                     .lineLimit(2)
             }
 
@@ -41,46 +45,104 @@ struct ModelPickerView: View {
 
             if model.id == selectedModelId {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(AppColors.accent)
+                    .foregroundStyle(AppColors.accent)
             }
         }
-        .padding(.horizontal, AppConstants.Spacing.sm)
+        .padding(.horizontal, AppConstants.Spacing.md)
         .padding(.vertical, AppConstants.Spacing.sm)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(model.id == selectedModelId ? AppColors.professionalVioletSoft.opacity(0.7) : Color.clear)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(model.id == selectedModelId ? highlightColor(for: model).opacity(0.18) : Color.clear)
         )
     }
 
     private var pickerLabel: some View {
-        HStack(alignment: .center, spacing: AppConstants.Spacing.md) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Modello")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(AppColors.subtleText)
-                Text(selectedModel?.displayName ?? "Seleziona modello")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.primary)
+        VStack(spacing: AppConstants.Spacing.xs) {
+            Text("Modello")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(AppColors.subtleText)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: AppConstants.Spacing.md) {
+                if let selectedModel {
+                    modelBadge(for: selectedModel)
+                }
+
+                VStack(alignment: .leading, spacing: AppConstants.Spacing.xs) {
+                    Text(selectedModel?.displayName ?? "Seleziona modello")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.primary)
+                    Text(selectedModel?.description ?? "Scegli una configurazione")
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(AppColors.subtleText)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(AppColors.subtleText)
+                    .padding(.leading, AppConstants.Spacing.xs)
             }
-
-            Spacer(minLength: AppConstants.Spacing.sm)
-
-            Image(systemName: "chevron.down")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundColor(AppColors.subtleText)
-                .padding(.leading, AppConstants.Spacing.xs)
+            .padding(.horizontal, AppConstants.Spacing.lg)
+            .padding(.vertical, AppConstants.Spacing.sm)
+            .background(
+                LinearGradient(colors: [AppColors.controlBackground.opacity(0.96), AppColors.professionalVioletSoft.opacity(0.55)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(AppColors.controlBorder.opacity(0.8), lineWidth: 1)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
         }
-        .padding(.horizontal, AppConstants.Spacing.lg)
-        .padding(.vertical, AppConstants.Spacing.sm)
-        .background(
-            LinearGradient(colors: [AppColors.controlBackground, AppColors.professionalVioletSoft.opacity(0.3)], startPoint: .topLeading, endPoint: .bottomTrailing)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(AppColors.controlBorder, lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
+        .frame(maxWidth: 260)
+    }
+
+    private var menuHeader: some View {
+        Label("Modelli disponibili", systemImage: "square.grid.2x2")
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(AppColors.subtleText)
+    }
+
+    private func modelBadge(for model: ChatModel) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(highlightColor(for: model))
+                .frame(width: 34, height: 34)
+            Image(systemName: iconName(for: model))
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Color.white)
+        }
+    }
+
+    private func highlightColor(for model: ChatModel) -> Color {
+        let id = model.id.lowercased()
+        if id.contains("mini") {
+            return Color.orange
+        }
+        if id.contains("dall") {
+            return Color.pink
+        }
+        if id.contains("3.5") {
+            return Color.blue
+        }
+        return AppColors.accent
+    }
+
+    private func iconName(for model: ChatModel) -> String {
+        let id = model.id.lowercased()
+        if id.contains("mini") {
+            return "bolt"
+        }
+        if id.contains("dall") {
+            return "paintpalette"
+        }
+        if id.contains("3.5") {
+            return "bubble.left.and.sparkles"
+        }
+        return "sparkles"
     }
 }
 

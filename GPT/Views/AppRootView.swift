@@ -12,9 +12,9 @@ struct AppRootView: View {
             Group {
                 if let selected = uiState.selectedConversationID,
                    let conversation = uiState.conversation(with: selected) {
-                    ChatView(conversation: conversation)
+                    ChatView(conversation: conversation, onSearchTapped: { searchFocused = true })
                 } else {
-                    HomeView()
+                    HomeView(onSearchTapped: { searchFocused = true })
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -22,34 +22,7 @@ struct AppRootView: View {
         }
         .environmentObject(uiState)
         .navigationSplitViewStyle(.balanced)
-        .toolbar { toolbarContent }
         .background(AppColors.background)
-    }
-
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItemGroup(placement: .automatic) {
-            Button {
-                uiState.beginNewChat()
-            } label: {
-                Label("Nuova chat", systemImage: "plus")
-            }
-            .buttonStyle(AppButtonStyle(variant: .secondary))
-            .keyboardShortcut(AppConstants.KeyboardShortcuts.newConversation)
-
-            Button(action: uiState.stopStreaming) {
-                Label("Stop", systemImage: "stop.fill")
-            }
-            .keyboardShortcut(AppConstants.KeyboardShortcuts.stopStreaming)
-            .disabled(!uiState.isStreamingResponse)
-
-            Button {
-                searchFocused = true
-            } label: {
-                Label("Cerca conversazioni", systemImage: "magnifyingglass")
-            }
-            .keyboardShortcut(AppConstants.KeyboardShortcuts.searchConversations)
-        }
     }
 
 }

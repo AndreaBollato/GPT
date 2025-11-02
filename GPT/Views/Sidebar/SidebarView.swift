@@ -95,6 +95,11 @@ struct SidebarView: View {
                                                      bottom: AppConstants.Spacing.xs,
                                                      trailing: AppConstants.Spacing.sm))
                             .listRowBackground(Color.clear)
+                            .onTapGesture {
+                                Task {
+                                    await uiState.openConversation(id: conversation.id)
+                                }
+                            }
                     }
                 }
             }
@@ -108,6 +113,34 @@ struct SidebarView: View {
                                                  bottom: AppConstants.Spacing.xs,
                                                  trailing: AppConstants.Spacing.sm))
                         .listRowBackground(Color.clear)
+                        .onTapGesture {
+                            Task {
+                                await uiState.openConversation(id: conversation.id)
+                            }
+                        }
+                        .onAppear {
+                            // Trigger pagination when approaching the end
+                            if conversation.id == uiState.recentConversations.last?.id {
+                                Task {
+                                    await uiState.loadMoreConversations()
+                                }
+                            }
+                        }
+                }
+                
+                if uiState.isLoadingConversations {
+                    HStack {
+                        Spacer()
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .scaleEffect(0.8)
+                        Spacer()
+                    }
+                    .listRowInsets(EdgeInsets(top: AppConstants.Spacing.xs,
+                                             leading: AppConstants.Spacing.sm,
+                                             bottom: AppConstants.Spacing.xs,
+                                             trailing: AppConstants.Spacing.sm))
+                    .listRowBackground(Color.clear)
                 }
             }
         }

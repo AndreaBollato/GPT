@@ -1,6 +1,11 @@
 import SwiftUI
 
 enum AppConstants {
+    enum API {
+        static let baseURL = "http://127.0.0.1:8000"
+        static let useRemoteBackend = false // Set to true to use remote backend
+    }
+    
     enum Layout {
         static let sidebarMinWidth: CGFloat = 260
         static let sidebarIdealWidth: CGFloat = 300

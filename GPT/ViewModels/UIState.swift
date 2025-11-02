@@ -21,13 +21,42 @@ final class UIState: ObservableObject {
     @Published var isAssistantTyping: Bool = false
     @Published var isStreamingResponse: Bool = false
     @Published var activeModelId: String
+    @Published var errorMessage: String?
+    
+    // Remote backend support
+    @Published private(set) var availableModels: [ChatModel] = []
+    @Published private(set) var isLoadingModels: Bool = false
+    @Published private(set) var isLoadingConversations: Bool = false
+    @Published private(set) var hasMoreConversations: Bool = true
+    
+    // Per-conversation streaming state
+    @Published private var isStreamingById: [UUID: Bool] = [:]
+    
+    // Pagination cursors
+    private var conversationCursor: String?
+    private var messagesCursorById: [UUID: String?] = [:]
 
-    let availableModels: [ChatModel]
+    private let store: ConversationsUIStore?
+    private let repo: ConversationsRepository?
+    private let chatService: ChatService?
 
-    private let store: ConversationsUIStore
-
+    // Remote-backend initializer
+    init(repo: ConversationsRepository, chatService: ChatService) {
+        self.repo = repo
+        self.chatService = chatService
+        self.store = nil
+        self.activeModelId = "gpt-4"
+        
+        Task {
+            await loadInitial()
+        }
+    }
+    
+    // Mock store initializer for previews
     init(store: ConversationsUIStore) {
         self.store = store
+        self.repo = nil
+        self.chatService = nil
         self.availableModels = store.availableModels
         self.activeModelId = store.availableModels.first?.id ?? "gpt-4"
         loadConversations()
@@ -45,7 +74,120 @@ final class UIState: ObservableObject {
         filteredConversations(includingPinned: false)
     }
 
+    // MARK: - Initial Load (Remote)
+    
+    func loadInitial() async {
+        guard let repo = repo else { return }
+        
+        isLoadingModels = true
+        isLoadingConversations = true
+        
+        async let modelsTask: Void = {
+            do {
+                self.availableModels = try await repo.fetchModels()
+                if self.activeModelId.isEmpty, let first = self.availableModels.first {
+                    self.activeModelId = first.id
+                }
+            } catch {
+                self.handleError(error)
+            }
+        }()
+        
+        async let conversationsTask: Void = {
+            do {
+                let result = try await repo.listConversations(limit: 10, cursor: nil)
+                self.conversations = result.items
+                self.conversationCursor = result.nextCursor
+                self.hasMoreConversations = result.nextCursor != nil
+            } catch {
+                self.handleError(error)
+            }
+        }()
+        
+        await modelsTask
+        await conversationsTask
+        
+        isLoadingModels = false
+        isLoadingConversations = false
+    }
+    
+    // MARK: - Load More (Pagination)
+    
+    func loadMoreConversations() async {
+        guard let repo = repo,
+              !isLoadingConversations,
+              hasMoreConversations,
+              let cursor = conversationCursor else {
+            return
+        }
+        
+        isLoadingConversations = true
+        
+        do {
+            let result = try await repo.listConversations(limit: 10, cursor: cursor)
+            conversations.append(contentsOf: result.items)
+            conversationCursor = result.nextCursor
+            hasMoreConversations = result.nextCursor != nil
+        } catch {
+            handleError(error)
+        }
+        
+        isLoadingConversations = false
+    }
+    
+    func loadMoreMessages(conversationId: UUID) async {
+        guard let repo = repo,
+              let cursor = messagesCursorById[conversationId] ?? nil else {
+            return
+        }
+        
+        do {
+            let result = try await repo.getMessages(conversationId: conversationId, limit: 30, cursor: cursor)
+            
+            // Prepend older messages
+            if let index = conversations.firstIndex(where: { $0.id == conversationId }) {
+                var conversation = conversations[index]
+                conversation.messages.insert(contentsOf: result.items, at: 0)
+                conversations[index] = conversation
+                messagesCursorById[conversationId] = result.nextCursor
+            }
+        } catch {
+            handleError(error)
+        }
+    }
+    
+    // MARK: - Open Conversation (lazy load messages)
+    
+    func openConversation(id: UUID) async {
+        guard let repo = repo else {
+            // Fallback to local
+            selectedConversationID = id
+            return
+        }
+        
+        selectedConversationID = id
+        
+        // Check if we already have messages
+        if let conv = conversations.first(where: { $0.id == id }), !conv.messages.isEmpty {
+            return
+        }
+        
+        // Lazy load messages
+        do {
+            let result = try await repo.getMessages(conversationId: id, limit: 30, cursor: nil)
+            if let index = conversations.firstIndex(where: { $0.id == id }) {
+                var conversation = conversations[index]
+                conversation.messages = result.items
+                conversations[index] = conversation
+                messagesCursorById[id] = result.nextCursor
+            }
+        } catch {
+            handleError(error)
+        }
+    }
+    
     func loadConversations() {
+        guard let store = store else { return }
         conversations = store.fetchConversations()
         // Non selezionare automaticamente la prima conversazione all'avvio
         // Questo permette di mostrare la homepage invece di aprire una conversazione
@@ -79,6 +221,25 @@ final class UIState: ObservableObject {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return conversationID }
 
+        // Remote backend
+        if let repo = repo, let chatService = chatService {
+            Task {
+                await submitRemote(text: trimmed, conversationID: conversationID)
+            }
+            
+            // Clear drafts immediately for better UX
+            if let id = conversationID {
+                conversationDrafts[id] = ""
+            } else {
+                homeDraft = ""
+            }
+            
+            return conversationID
+        }
+        
+        // Local store fallback
+        guard let store = store else { return conversationID }
+        
         let message = Message(role: .user, text: trimmed)
 
         if let id = conversationID,
@@ -93,6 +254,87 @@ final class UIState: ObservableObject {
             updateLocal(conversation)
             selectedConversationID = conversation.id
             return conversation.id
+        }
+    }
+    
+    private func submitRemote(text: String, conversationID: UUID?) async {
+        guard let repo = repo, let chatService = chatService else { return }
+        
+        let userMessage = Message(role: .user, text: text)
+        var targetConvId = conversationID
+        
+        do {
+            // Create conversation if needed
+            if targetConvId == nil {
+                let newConv = try await repo.createConversation(initialMessage: userMessage, modelId: activeModelId)
+                updateLocal(newConv)
+                selectedConversationID = newConv.id
+                targetConvId = newConv.id
+            } else {
+                // Add user message optimistically
+                if let id = targetConvId, let index = conversations.firstIndex(where: { $0.id == id }) {
+                    var conversation = conversations[index]
+                    conversation.messages.append(userMessage)
+                    conversations[index] = conversation
+                }
+            }
+            
+            guard let convId = targetConvId else { return }
+            
+            // Add placeholder assistant message
+            let assistantPlaceholder = Message(id: UUID(), role: .assistant, text: "", isLoading: true)
+            if let index = conversations.firstIndex(where: { $0.id == convId }) {
+                var conversation = conversations[index]
+                conversation.messages.append(assistantPlaceholder)
+                conversations[index] = conversation
+            }
+            
+            let placeholderId = assistantPlaceholder.id
+            isStreamingById[convId] = true
+            updateStreamingState()
+            
+            // Stream reply
+            await chatService.streamReply(
+                conversationId: convId,
+                userText: text,
+                onDelta: { [weak self] delta in
+                    guard let self = self else { return }
+                    if let index = self.conversations.firstIndex(where: { $0.id == convId }) {
+                        var conversation = self.conversations[index]
+                        if let msgIndex = conversation.messages.firstIndex(where: { $0.id == placeholderId }) {
+                            var msg = conversation.messages[msgIndex]
+                            msg.text += delta
+                            msg.isLoading = false
+                            conversation.messages[msgIndex] = msg
+                            self.conversations[index] = conversation
+                        }
+                    }
+                },
+                onDone: { [weak self] in
+                    guard let self = self else { return }
+                    self.isStreamingById[convId] = false
+                    self.updateStreamingState()
+                    
+                    // Mark message as no longer loading
+                    if let index = self.conversations.firstIndex(where: { $0.id == convId }) {
+                        var conversation = self.conversations[index]
+                        if let msgIndex = conversation.messages.firstIndex(where: { $0.id == placeholderId }) {
+                            var msg = conversation.messages[msgIndex]
+                            msg.isLoading = false
+                            conversation.messages[msgIndex] = msg
+                            self.conversations[index] = conversation
+                        }
+                    }
+                },
+                onError: { [weak self] error in
+                    guard let self = self else { return }
+                    self.isStreamingById[convId] = false
+                    self.updateStreamingState()
+                    self.handleError(error)
+                }
+            )
+        } catch {
+            handleError(error)
         }
     }
 
@@ -112,38 +354,97 @@ final class UIState: ObservableObject {
     }
 
     func updateTitle(_ title: String, for conversationID: Conversation.ID) {
-        guard let conversation = store.updateConversation(id: conversationID, mutate: { $0.title = title }) else {
-            return
+        if let repo = repo {
+            Task {
+                do {
+                    let conversation = try await repo.updateConversation(id: conversationID, title: title, modelId: nil, isPinned: nil)
+                    updateLocal(conversation)
+                } catch {
+                    handleError(error)
+                }
+            }
+        } else if let store = store {
+            guard let conversation = store.updateConversation(id: conversationID, mutate: { $0.title = title }) else {
+                return
+            }
+            updateLocal(conversation)
         }
-        updateLocal(conversation)
     }
 
     func deleteConversation(id: Conversation.ID) {
-        store.deleteConversation(id: id)
-        removeLocal(id: id)
-        if selectedConversationID == id {
-            selectedConversationID = conversations.first?.id
+        if let repo = repo {
+            Task {
+                do {
+                    try await repo.deleteConversation(id: id)
+                    removeLocal(id: id)
+                    if selectedConversationID == id {
+                        selectedConversationID = conversations.first?.id
+                    }
+                } catch {
+                    handleError(error)
+                }
+            }
+        } else if let store = store {
+            store.deleteConversation(id: id)
+            removeLocal(id: id)
+            if selectedConversationID == id {
+                selectedConversationID = conversations.first?.id
+            }
         }
     }
 
     func duplicateConversation(id: Conversation.ID) {
-        guard let conversation = store.duplicateConversation(id: id) else { return }
-        updateLocal(conversation)
-        selectedConversationID = conversation.id
+        if let repo = repo {
+            Task {
+                do {
+                    let conversation = try await repo.duplicateConversation(id: id)
+                    updateLocal(conversation)
+                    selectedConversationID = conversation.id
+                } catch {
+                    handleError(error)
+                }
+            }
+        } else if let store = store {
+            guard let conversation = store.duplicateConversation(id: id) else { return }
+            updateLocal(conversation)
+            selectedConversationID = conversation.id
+        }
     }
 
     func setPinned(_ isPinned: Bool, for id: Conversation.ID) {
-        guard let conversation = store.updateConversation(id: id, mutate: { $0.isPinned = isPinned }) else {
-            return
+        if let repo = repo {
+            Task {
+                do {
+                    let conversation = try await repo.updateConversation(id: id, title: nil, modelId: nil, isPinned: isPinned)
+                    updateLocal(conversation)
+                } catch {
+                    handleError(error)
+                }
+            }
+        } else if let store = store {
+            guard let conversation = store.updateConversation(id: id, mutate: { $0.isPinned = isPinned }) else {
+                return
+            }
+            updateLocal(conversation)
         }
-        updateLocal(conversation)
     }
 
     func updateModel(for conversationID: Conversation.ID, to modelId: String) {
-        guard let conversation = store.updateConversation(id: conversationID, mutate: { $0.modelId = modelId }) else {
-            return
+        if let repo = repo {
+            Task {
+                do {
+                    let conversation = try await repo.updateConversation(id: conversationID, title: nil, modelId: modelId, isPinned: nil)
+                    updateLocal(conversation)
+                } catch {
+                    handleError(error)
+                }
+            }
+        } else if let store = store {
+            guard let conversation = store.updateConversation(id: conversationID, mutate: { $0.modelId = modelId }) else {
+                return
+            }
+            updateLocal(conversation)
         }
-        updateLocal(conversation)
     }
 
     func setActiveModel(_ modelID: String) {
@@ -151,8 +452,37 @@ final class UIState: ObservableObject {
     }
 
     func stopStreaming() {
+        // Legacy for store-based mode
         isAssistantTyping = false
         isStreamingResponse = false
+        
+        // Remote mode
+        if let chatService = chatService {
+            Task {
+                await chatService.stopAll()
+                isStreamingById.removeAll()
+                updateStreamingState()
+            }
+        }
+    }
+    
+    func stopStreaming(for conversationId: UUID) {
+        if let chatService = chatService {
+            Task {
+                await chatService.stop(conversationId: conversationId)
+                isStreamingById[conversationId] = false
+                updateStreamingState()
+            }
+        }
+    }
+    
+    func isStreaming(_ conversationId: UUID) -> Bool {
+        isStreamingById[conversationId] ?? false
+    }
+    
+    private func updateStreamingState() {
+        isStreamingResponse = isStreamingById.values.contains(true)
+        isAssistantTyping = isStreamingResponse
     }
 
     private func filteredConversations(includingPinned: Bool) -> [Conversation] {
@@ -188,6 +518,17 @@ final class UIState: ObservableObject {
                 return lhs.isPinned && !rhs.isPinned
             }
             return lhs.lastActivityDate > rhs.lastActivityDate
+        }
+    }
+    
+    private func handleError(_ error: Error) {
+        print("UIState Error: \(error.localizedDescription)")
+        errorMessage = error.localizedDescription
+        
+        // Auto-dismiss after 5 seconds
+        Task {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            errorMessage = nil
         }
     }
 }

@@ -20,8 +20,8 @@ struct ChatView: View {
             TopBarView(
                 title: conversation.title,
                 status: TopBarView.Status(
-                    text: uiState.isStreamingResponse ? "Risposta in corso" : "Pronto",
-                    color: uiState.isStreamingResponse ? AppColors.accent : AppColors.subtleText
+                    text: uiState.isStreaming(conversation.id) ? "Risposta in corso" : "Pronto",
+                    color: uiState.isStreaming(conversation.id) ? AppColors.accent : AppColors.subtleText
                 ),
                 selectedModelId: conversation.modelId,
                 onSelectModel: { modelId in
@@ -35,8 +35,10 @@ struct ChatView: View {
                 onDelete: {
                     uiState.deleteConversation(id: conversation.id)
                 },
-                isStreaming: uiState.isStreamingResponse,
-                onStopStreaming: uiState.stopStreaming
+                isStreaming: uiState.isStreaming(conversation.id),
+                onStopStreaming: {
+                    uiState.stopStreaming(for: conversation.id)
+                }
             )
             Divider()
             messages
@@ -44,9 +46,11 @@ struct ChatView: View {
             ComposerView(
                 text: draftBinding,
                 placeholder: "Invia un messaggio",
-                isStreaming: uiState.isStreamingResponse,
+                isStreaming: uiState.isStreaming(conversation.id),
                 onSubmit: submitMessage,
-                onStop: uiState.stopStreaming,
+                onStop: {
+                    uiState.stopStreaming(for: conversation.id)
+                },
                 focus: $composerFocused
             )
             .padding(.horizontal, AppConstants.Spacing.xl)

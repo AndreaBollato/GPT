@@ -38,8 +38,7 @@ struct SidebarView: View {
                 Image(systemName: "plus")
                     .font(.system(size: 14, weight: .semibold))
             }
-            .buttonStyle(.plain)
-            .foregroundColor(AppColors.accent)
+            .buttonStyle(AppButtonStyle(variant: .secondary, size: .small, isIconOnly: true))
             .keyboardShortcut(AppConstants.KeyboardShortcuts.newConversation)
             .help("Crea una nuova chat")
         }

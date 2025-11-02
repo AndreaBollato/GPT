@@ -28,13 +28,6 @@ struct AppRootView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigation) {
-            Button(action: toggleSidebar) {
-                Label("Mostra/Nascondi sidebar", systemImage: "sidebar.leading")
-            }
-            .keyboardShortcut(AppConstants.KeyboardShortcuts.toggleSidebar)
-        }
-
         ToolbarItemGroup(placement: .automatic) {
             Button(action: uiState.beginNewChat) {
                 Label("Nuova chat", systemImage: "plus")
@@ -56,16 +49,6 @@ struct AppRootView: View {
         }
     }
 
-    private func toggleSidebar() {
-        withAnimation(AppConstants.Animation.easeInOut) {
-            switch columnVisibility {
-            case .all:
-                columnVisibility = .detailOnly
-            default:
-                columnVisibility = .all
-            }
-        }
-    }
 }
 
 struct AppRootView_Previews: PreviewProvider {

@@ -21,7 +21,13 @@ struct ConversationRowView: View {
 
     private var rowBackground: some ShapeStyle {
         if isSelected {
-            return AnyShapeStyle(AppColors.chatBackground.opacity(0.6))
+            return AnyShapeStyle(
+                LinearGradient(
+                    colors: [AppColors.professionalVioletSoft, AppColors.professionalVioletSoft.opacity(0.65)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
         } else if isHovering {
             return AnyShapeStyle(AppColors.sidebarBackground.opacity(0.6))
         } else {
@@ -41,7 +47,7 @@ struct ConversationRowView: View {
                 } else {
                     Text(conversation.title)
                         .font(.headline)
-                        .foregroundColor(.primary)
+                        .foregroundColor(isSelected ? AppColors.professionalViolet : .primary)
                         .lineLimit(1)
                 }
 
@@ -54,7 +60,7 @@ struct ConversationRowView: View {
             if let snippet = snippetText, !snippet.isEmpty {
                 Text(snippet)
                     .font(.subheadline)
-                    .foregroundColor(AppColors.subtleText)
+                    .foregroundColor(isSelected ? AppColors.professionalViolet.opacity(0.85) : AppColors.subtleText)
                     .lineLimit(1)
             }
 
@@ -63,7 +69,11 @@ struct ConversationRowView: View {
                     .font(AppTypography.badge)
                     .padding(.horizontal, AppConstants.Spacing.xs)
                     .padding(.vertical, AppConstants.Spacing.xxs)
-                    .background(AppColors.sidebarBorder.opacity(0.35))
+                    .foregroundColor(isSelected ? AppColors.professionalViolet : AppColors.subtleText)
+                    .background(
+                        Capsule()
+                            .fill(isSelected ? AppColors.professionalVioletSoft.opacity(0.6) : AppColors.sidebarBorder.opacity(0.35))
+                    )
                     .clipShape(Capsule())
 
                 if conversation.isPinned {
@@ -76,7 +86,7 @@ struct ConversationRowView: View {
         .padding(.vertical, AppConstants.Spacing.sm)
         .padding(.horizontal, AppConstants.Spacing.sm)
         .background(rowBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .contentShape(Rectangle())
         .onHover { hovering in
             isHovering = hovering

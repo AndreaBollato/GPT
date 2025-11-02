@@ -8,7 +8,6 @@ struct ComposerView: View {
     var onStop: () -> Void
     var focus: FocusState<Bool>.Binding?
 
-    @State private var isHoveringSend: Bool = false
     @FocusState private var internalFocus: Bool
 
     private var isSendDisabled: Bool {
@@ -17,64 +16,8 @@ struct ComposerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppConstants.Spacing.sm) {
-            VStack(alignment: .leading, spacing: AppConstants.Spacing.sm) {
-                ZStack(alignment: .topLeading) {
-                    TextEditor(text: $text)
-                        .frame(minHeight: AppConstants.Layout.composerMinHeight,
-                               maxHeight: AppConstants.Layout.composerMaxHeight)
-                        .padding(.horizontal, AppConstants.Spacing.sm)
-                        .padding(.vertical, AppConstants.Spacing.sm)
-                        .background(AppColors.chatBackground)
-                        .clipShape(RoundedRectangle(cornerRadius: AppConstants.Layout.cardCornerRadius, style: .continuous))
-                        .focused(resolvedFocus)
-                        .scrollContentBackground(.hidden)
-
-                    if text.isEmpty {
-                        Text(placeholder)
-                            .foregroundColor(AppColors.subtleText)
-                            .padding(.horizontal, AppConstants.Spacing.sm + 4)
-                            .padding(.vertical, AppConstants.Spacing.sm + 2)
-                    }
-                }
-
-                HStack(spacing: AppConstants.Spacing.md) {
-                    if isStreaming {
-                        Button(action: onStop) {
-                            Label("Stop", systemImage: "stop.fill")
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(AppColors.accent)
-                    }
-
-                    Spacer()
-                    Text("?? per inviare")
-                        .font(AppTypography.badge)
-                        .foregroundColor(AppColors.subtleText)
-                    Button(action: onSubmit) {
-                        Image(systemName: "paperplane.fill")
-                            .foregroundColor(isSendDisabled ? AppColors.subtleText : .white)
-                            .padding(AppConstants.Spacing.sm)
-                            .background(
-                                Circle()
-                                    .fill(isSendDisabled ? AppColors.divider : AppColors.accent)
-                                    .shadow(color: AppColors.accent.opacity(isHoveringSend ? 0.25 : 0), radius: 10)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(isSendDisabled)
-                    .keyboardShortcut(AppConstants.KeyboardShortcuts.sendMessage)
-                    .onHover { hovering in
-                        isHoveringSend = hovering
-                    }
-                }
-            }
-            .padding(AppConstants.Spacing.lg)
-            .background(AppColors.chatBackground.opacity(0.9))
-            .clipShape(RoundedRectangle(cornerRadius: AppConstants.Layout.cardCornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: AppConstants.Layout.cardCornerRadius, style: .continuous)
-                    .stroke(AppColors.divider, lineWidth: 1)
-            )
+            composerSurface
+            footerControls
 
             if isStreaming {
                 typingIndicator
@@ -85,6 +28,104 @@ struct ComposerView: View {
 
     private var resolvedFocus: FocusState<Bool>.Binding {
         focus ?? $internalFocus
+    }
+
+    private var composerSurface: some View {
+        HStack(spacing: AppConstants.Spacing.md) {
+            accessoryButton(systemName: "plus")
+
+            textFieldStack
+
+            HStack(spacing: AppConstants.Spacing.sm) {
+                accessoryButton(systemName: "mic.fill")
+                accessoryButton(systemName: "waveform")
+            }
+
+            sendButton
+        }
+        .padding(.horizontal, AppConstants.Spacing.lg)
+        .padding(.vertical, AppConstants.Spacing.sm)
+        .background(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .fill(AppColors.controlBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 30, style: .continuous)
+                .stroke(AppColors.controlBorder, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.06), radius: 14, x: 0, y: 6)
+    }
+
+    private var textFieldStack: some View {
+        ZStack(alignment: .leading) {
+            if text.isEmpty {
+                Text(placeholder)
+                    .foregroundColor(AppColors.subtleText)
+                    .padding(.horizontal, 2)
+            }
+
+#if os(macOS)
+            if #available(macOS 13.0, *) {
+                TextField("", text: $text, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .font(AppTypography.messageBody)
+                    .focused(resolvedFocus)
+                    .lineLimit(1...6)
+                    .frame(minHeight: 32)
+            } else {
+                TextField("", text: $text)
+                    .textFieldStyle(.plain)
+                    .font(AppTypography.messageBody)
+                    .focused(resolvedFocus)
+                    .frame(minHeight: 32)
+            }
+#else
+            TextField("", text: $text)
+                .textFieldStyle(.plain)
+                .font(AppTypography.messageBody)
+                .focused(resolvedFocus)
+                .frame(minHeight: 32)
+#endif
+        }
+        .padding(.vertical, AppConstants.Spacing.xs)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func accessoryButton(systemName: String) -> some View {
+        Button(action: {}) {
+            Image(systemName: systemName)
+                .font(.system(size: 15, weight: .semibold))
+        }
+        .buttonStyle(AppButtonStyle(variant: .subtle, size: .small, isIconOnly: true))
+        .contentShape(Rectangle())
+    }
+
+    private var sendButton: some View {
+        Button(action: onSubmit) {
+            Image(systemName: "paperplane.fill")
+                .font(.system(size: 15, weight: .semibold))
+        }
+        .disabled(isSendDisabled)
+        .opacity(isSendDisabled ? 0.4 : 1)
+        .buttonStyle(AppButtonStyle(variant: .primary, size: .regular, isIconOnly: true))
+        .keyboardShortcut(AppConstants.KeyboardShortcuts.sendMessage)
+    }
+
+    private var footerControls: some View {
+        HStack(spacing: AppConstants.Spacing.md) {
+            if isStreaming {
+                Button(action: onStop) {
+                    Label("Interrompi", systemImage: "stop.fill")
+                }
+                .buttonStyle(AppButtonStyle(variant: .destructive, size: .small))
+            }
+
+            Spacer()
+
+            Text("Cmd+Invio per inviare")
+                .font(AppTypography.badge)
+                .foregroundColor(AppColors.subtleText)
+        }
     }
 
     private var typingIndicator: some View {

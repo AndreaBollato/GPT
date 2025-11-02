@@ -56,8 +56,7 @@ struct ChatView: View {
                 Button(action: uiState.stopStreaming) {
                     Label("Stop", systemImage: "stop.fill")
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(AppColors.accent)
+                .buttonStyle(AppButtonStyle(variant: .destructive))
                 .keyboardShortcut(AppConstants.KeyboardShortcuts.stopStreaming)
             }
 
@@ -66,7 +65,7 @@ struct ChatView: View {
             } label: {
                 Label("Nuova chat", systemImage: "plus")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(AppButtonStyle(variant: .secondary))
             .keyboardShortcut(AppConstants.KeyboardShortcuts.newConversation)
 
             Menu {
@@ -84,8 +83,12 @@ struct ChatView: View {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 16, weight: .semibold))
                     .padding(AppConstants.Spacing.sm)
-                    .background(AppColors.chatBackground)
-                    .clipShape(Circle())
+                    .background(AppColors.controlBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(AppColors.controlBorder, lineWidth: 1)
+                    )
             }
             .menuStyle(.borderlessButton)
         }

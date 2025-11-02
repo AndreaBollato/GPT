@@ -14,6 +14,11 @@ struct AppColors {
     static let accent = Color.dynamic(lightHex: 0x10A37F, darkHex: 0x10A37F)
     static let subtleText = Color.dynamic(lightHex: 0x71727B, darkHex: 0xB1B2C0)
     static let timestamp = Color.dynamic(lightHex: 0x999AA3, darkHex: 0x8A8B96)
+    static let controlBackground = Color.dynamic(lightHex: 0xFFFFFF, darkHex: 0x2C2E36)
+    static let controlBorder = Color.dynamic(lightHex: 0xD8DAE5, darkHex: 0x3A3C47)
+    static let controlMuted = Color.dynamic(lightHex: 0xF3F4FA, darkHex: 0x2A2B34)
+    static let professionalViolet = Color.dynamic(lightHex: 0x6D5BD0, darkHex: 0x8F82FF)
+    static let professionalVioletSoft = Color.dynamic(lightHex: 0xF1EEFF, darkHex: 0x2C2650)
 }
 
 private extension Color {

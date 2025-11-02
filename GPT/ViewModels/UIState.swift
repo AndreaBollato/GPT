@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 protocol ConversationsUIStore: AnyObject {
     var availableModels: [ChatModel] { get }

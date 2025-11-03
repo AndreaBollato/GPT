@@ -90,7 +90,8 @@ struct ModelPickerView: View {
             // Menù custom
             if isOpen {
                 VStack(spacing: 0) {
-                    ForEach(Array(uiState.availableModels.enumerated()), id: \.element.id) { index, model in
+                    ForEach(uiState.availableModels.indices, id: \.self) { index in
+                        let model = uiState.availableModels[index]
                         ModelRow(model: model,
                                  isSelected: model.id == selectedModelId) {
                             withAnimation(.easeInOut(duration: 0.12)) {
@@ -131,6 +132,16 @@ struct ModelRow: View {
     var action: () -> Void
 
     @State private var isHovering: Bool = false
+    
+    private var backgroundColor: Color {
+        if isSelected {
+            return AppColors.accent.opacity(0.10)
+        } else if isHovering {
+            return Color(nsColor: NSColor.selectedControlColor).opacity(0.06)
+        } else {
+            return Color.clear
+        }
+    }
 
     var body: some View {
         Button(action: action) {
@@ -139,7 +150,7 @@ struct ModelRow: View {
                 Rectangle()
                     .fill(AppColors.accent)
                     .frame(width: 4)
-                    .cornerRadius(2)
+                    .clipShape(RoundedRectangle(cornerRadius: 2))
                     .opacity(isSelected ? 1 : 0)
 
                 // Icona sinistra
@@ -180,17 +191,8 @@ struct ModelRow: View {
             .padding(.vertical, 8)
             .padding(.horizontal, 6)
             .background(
-                Group {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(AppColors.accent.opacity(0.10))
-                    } else if isHovering {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(Color(nsColor: NSColor.selectedControlColor).opacity(0.06))
-                    } else {
-                        Color.clear
-                    }
-                }
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(backgroundColor)
             )
         }
         .buttonStyle(PlainButtonStyle())

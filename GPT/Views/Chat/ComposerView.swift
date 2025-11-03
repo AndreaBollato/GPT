@@ -3,7 +3,7 @@ import SwiftUI
 struct ComposerView: View {
     @Binding var text: String
     var placeholder: String = "Scrivi il tuo messaggio"
-    var isStreaming: Bool = false
+    var phase: ConversationRequestPhase = .idle
     var onSubmit: () -> Void
     var onStop: () -> Void
     var focus: FocusState<Bool>.Binding?
@@ -18,12 +18,9 @@ struct ComposerView: View {
         VStack(alignment: .leading, spacing: AppConstants.Spacing.sm) {
             composerSurface
             footerControls
-
-            if isStreaming {
-                typingIndicator
-            }
+            statusIndicator
         }
-        .animation(AppConstants.Animation.easeInOut, value: isStreaming)
+        .animation(AppConstants.Animation.easeInOut, value: phase)
     }
 
     private var resolvedFocus: FocusState<Bool>.Binding {
@@ -113,7 +110,7 @@ struct ComposerView: View {
 
     private var footerControls: some View {
         HStack(spacing: AppConstants.Spacing.md) {
-            if isStreaming {
+            if isStreamingPhase {
                 Button(action: onStop) {
                     Label("Interrompi", systemImage: "stop.fill")
                 }
@@ -124,16 +121,55 @@ struct ComposerView: View {
         }
     }
 
-    private var typingIndicator: some View {
+    @ViewBuilder
+    private var statusIndicator: some View {
+        if isSendingPhase {
+            progressIndicator(text: "Richiesta al servizio Python...")
+        } else if isStreamingPhase {
+            progressIndicator(text: "Assistente sta rispondendo...")
+        } else if let errorMessage {
+            errorIndicator(text: errorMessage)
+        }
+    }
+
+    private func progressIndicator(text: String) -> some View {
         HStack(spacing: AppConstants.Spacing.xs) {
             ProgressView()
                 .progressViewStyle(.circular)
                 .controlSize(.small)
-            Text("Assistente sta rispondendo...")
+                .tint(AppColors.accent)
+            Text(text)
                 .font(AppTypography.badge)
                 .foregroundColor(AppColors.subtleText)
         }
         .padding(.horizontal, AppConstants.Spacing.lg)
+    }
+
+    private func errorIndicator(text: String) -> some View {
+        HStack(spacing: AppConstants.Spacing.xs) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(AppColors.error)
+            Text(text)
+                .font(AppTypography.badge)
+                .foregroundColor(AppColors.error)
+                .multilineTextAlignment(.leading)
+        }
+        .padding(.horizontal, AppConstants.Spacing.lg)
+    }
+
+    private var isStreamingPhase: Bool {
+        if case .streaming = phase { return true }
+        return false
+    }
+
+    private var isSendingPhase: Bool {
+        if case .sending = phase { return true }
+        return false
+    }
+
+    private var errorMessage: String? {
+        phase.errorMessage
     }
 }
 

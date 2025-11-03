@@ -42,7 +42,7 @@ struct HomeView: View {
                 ComposerView(
                     text: $uiState.homeDraft,
                     placeholder: "Inizia una nuova conversazione",
-                    isStreaming: uiState.isStreamingResponse,
+                    phase: uiState.homeComposerPhase,
                     onSubmit: submitFromHome,
                     onStop: uiState.stopStreaming,
                     focus: $composerFocused

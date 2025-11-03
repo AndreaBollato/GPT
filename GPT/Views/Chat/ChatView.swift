@@ -15,14 +15,28 @@ struct ChatView: View {
         )
     }
 
+    private var requestPhase: ConversationRequestPhase {
+        uiState.phase(for: conversation.id)
+    }
+
+    private var topBarStatus: TopBarView.Status {
+        switch requestPhase {
+        case .idle:
+            return TopBarView.Status(text: "Pronto", color: AppColors.subtleText)
+        case .sending:
+            return TopBarView.Status(text: "Invio richiesta...", color: AppColors.warning)
+        case .streaming:
+            return TopBarView.Status(text: "Risposta in corso", color: AppColors.accent)
+        case .error:
+            return TopBarView.Status(text: "Errore", color: AppColors.error)
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             TopBarView(
                 title: conversation.title,
-                status: TopBarView.Status(
-                    text: uiState.isStreaming(conversation.id) ? "Risposta in corso" : "Pronto",
-                    color: uiState.isStreaming(conversation.id) ? AppColors.accent : AppColors.subtleText
-                ),
+                status: topBarStatus,
                 selectedModelId: conversation.modelId,
                 onSelectModel: { modelId in
                     uiState.updateModel(for: conversation.id, to: modelId)
@@ -35,7 +49,7 @@ struct ChatView: View {
                 onDelete: {
                     uiState.deleteConversation(id: conversation.id)
                 },
-                isStreaming: uiState.isStreaming(conversation.id),
+                isStreaming: requestPhase.isInFlight,
                 onStopStreaming: {
                     uiState.stopStreaming(for: conversation.id)
                 }
@@ -46,7 +60,7 @@ struct ChatView: View {
             ComposerView(
                 text: draftBinding,
                 placeholder: "Invia un messaggio",
-                isStreaming: uiState.isStreaming(conversation.id),
+                phase: requestPhase,
                 onSubmit: submitMessage,
                 onStop: {
                     uiState.stopStreaming(for: conversation.id)
@@ -71,11 +85,6 @@ struct ChatView: View {
                         MessageRowView(message: message)
                             .id(message.id)
                     }
-
-                    if uiState.isAssistantTyping {
-                        MessageRowView(message: Message(role: .assistant, text: "", isLoading: true))
-                            .id(UUID())
-                    }
                 }
                 .padding(.vertical, AppConstants.Spacing.xl)
             }
@@ -86,8 +95,13 @@ struct ChatView: View {
             .onChange(of: conversation.messages.count) {
                 scrollToBottom(proxy: proxy)
             }
-            .onChange(of: uiState.isAssistantTyping) {
-                scrollToBottom(proxy: proxy)
+            .onChange(of: requestPhase) { _ in
+                if requestPhase.isInFlight {
+                    scrollToBottom(proxy: proxy)
+                }
+            }
+            .overlay(alignment: .top) {
+                requestOverlay
             }
         }
     }
@@ -112,6 +126,42 @@ struct ChatView: View {
         } else {
             action()
         }
+    }
+
+    @ViewBuilder
+    private var requestOverlay: some View {
+        switch requestPhase {
+        case .sending:
+            overlayContent(text: "Richiesta in corso...", tint: AppColors.warning)
+        case .streaming:
+            overlayContent(text: "Streaming della risposta...", tint: AppColors.accent)
+        case .error, .idle:
+            EmptyView()
+        }
+    }
+
+    private func overlayContent(text: String, tint: Color) -> some View {
+        HStack(spacing: AppConstants.Spacing.sm) {
+            ProgressView()
+                .progressViewStyle(.circular)
+                .controlSize(.small)
+                .tint(tint)
+            Text(text)
+                .font(AppTypography.badge)
+                .foregroundColor(AppColors.subtleText)
+        }
+        .padding(.horizontal, AppConstants.Spacing.lg)
+        .padding(.vertical, AppConstants.Spacing.sm)
+        .background(
+            Capsule(style: .continuous)
+                .fill(AppColors.controlBackground.opacity(0.95))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(tint.opacity(0.35), lineWidth: 1)
+        )
+        .shadow(color: tint.opacity(0.15), radius: 12, x: 0, y: 6)
+        .padding(.top, AppConstants.Spacing.lg)
     }
 }
 

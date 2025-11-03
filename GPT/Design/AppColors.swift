@@ -29,6 +29,10 @@ struct AppColors {
     // Brand colors
     static let professionalViolet = Color(hex: 0x6D5BD0)
     static let professionalVioletSoft = Color(hex: 0xF1EEFF)
+
+    // Feedback colors
+    static let warning = Color(hex: 0xF4A261)
+    static let error = Color(hex: 0xD14343)
 }
 
 private extension Color {

@@ -11,6 +11,29 @@ protocol ConversationsUIStore: AnyObject {
     func duplicateConversation(id: Conversation.ID) -> Conversation?
 }
 
+enum ConversationRequestPhase: Equatable {
+    case idle
+    case sending
+    case streaming
+    case error(message: String)
+
+    var isInFlight: Bool {
+        switch self {
+        case .sending, .streaming:
+            return true
+        case .idle, .error:
+            return false
+        }
+    }
+
+    var errorMessage: String? {
+        if case let .error(message) = self {
+            return message
+        }
+        return nil
+    }
+}
+
 @MainActor
 final class UIState: ObservableObject {
     @Published private(set) var conversations: [Conversation] = []
@@ -29,9 +52,9 @@ final class UIState: ObservableObject {
     @Published private(set) var isLoadingConversations: Bool = false
     @Published private(set) var hasMoreConversations: Bool = true
     
-    // Per-conversation streaming state
-    @Published private var isGlobalStreaming: Bool = false
-    @Published private var isStreamingById: [UUID: Bool] = [:]
+    // Per-conversation request phases
+    @Published private var requestPhaseById: [UUID: ConversationRequestPhase] = [:]
+    @Published private var pendingNewConversationPhase: ConversationRequestPhase = .idle
     
     // Pagination cursors
     private var conversationCursor: String?
@@ -73,6 +96,10 @@ final class UIState: ObservableObject {
 
     var recentConversations: [Conversation] {
         filteredConversations(includingPinned: false)
+    }
+
+    var homeComposerPhase: ConversationRequestPhase {
+        pendingNewConversationPhase
     }
 
     // MARK: - Initial Load (Remote)
@@ -196,6 +223,7 @@ final class UIState: ObservableObject {
     func beginNewChat() {
         homeDraft = ""
         selectedConversationID = nil
+        setPendingPhase(.idle)
     }
 
     func conversation(with id: Conversation.ID) -> Conversation? {
@@ -258,8 +286,11 @@ final class UIState: ObservableObject {
         var targetConvId = conversationID
         var placeholderId: UUID?
         
-        isGlobalStreaming = true
-        updateStreamingState()
+        if let id = targetConvId {
+            setPhase(.sending, for: id)
+        } else {
+            setPendingPhase(.sending)
+        }
         
         do {
             // Create conversation if needed
@@ -268,6 +299,8 @@ final class UIState: ObservableObject {
                 updateLocal(newConv)
                 selectedConversationID = newConv.id
                 targetConvId = newConv.id
+                setPendingPhase(.idle)
+                setPhase(.sending, for: newConv.id)
             } else {
                 // Add user message optimistically
                 if let id = targetConvId, let index = conversations.firstIndex(where: { $0.id == id }) {
@@ -278,8 +311,6 @@ final class UIState: ObservableObject {
             }
             
             guard let convId = targetConvId else {
-                isGlobalStreaming = false
-                updateStreamingState()
                 return
             }
             
@@ -293,9 +324,7 @@ final class UIState: ObservableObject {
                 conversations[index] = conversation
             }
             
-            isStreamingById[convId] = true
-            isGlobalStreaming = false
-            updateStreamingState()
+            setPhase(.streaming, for: convId)
             
             // Stream reply
             await chatService.streamReply(
@@ -310,31 +339,30 @@ final class UIState: ObservableObject {
                 },
                 onDone: { [weak self] in
                     guard let self = self else { return }
-                    self.isStreamingById[convId] = false
-                    self.updateStreamingState()
+                    self.setPhase(.idle, for: convId)
                     self.updateMessage(in: convId, messageId: currentPlaceholderId) { message in
                         message.isLoading = false
                     }
                 },
                 onError: { [weak self] error in
                     guard let self = self else { return }
-                    self.isStreamingById[convId] = false
-                    self.updateStreamingState()
-                    self.markAssistantMessageAsError(conversationId: convId, messageId: currentPlaceholderId, error: error)
+                    let friendly = self.friendlyErrorMessage(for: error)
+                    self.setPhase(.error(message: friendly), for: convId)
+                    self.markAssistantMessageAsError(conversationId: convId, messageId: currentPlaceholderId, error: error, overrideMessage: friendly)
                     self.handleError(error)
                 }
             )
         } catch {
+            let friendly = friendlyErrorMessage(for: error)
             if conversationID == nil {
                 homeDraft = text
+                setPendingPhase(.error(message: friendly))
             }
             if let convId = targetConvId {
-                isStreamingById[convId] = false
+                setPhase(.error(message: friendly), for: convId)
             }
-            isGlobalStreaming = false
-            updateStreamingState()
             if let convId = targetConvId, let placeholderId {
-                markAssistantMessageAsError(conversationId: convId, messageId: placeholderId, error: error)
+                markAssistantMessageAsError(conversationId: convId, messageId: placeholderId, error: error, overrideMessage: friendly)
             }
             handleError(error)
         }
@@ -464,8 +492,15 @@ final class UIState: ObservableObject {
         if let chatService = chatService {
             Task {
                 await chatService.stopAll()
-                isGlobalStreaming = false
-                isStreamingById.removeAll()
+                if pendingNewConversationPhase.isInFlight {
+                    pendingNewConversationPhase = .idle
+                }
+                requestPhaseById = requestPhaseById.mapValues { phase in
+                    if phase.isInFlight {
+                        return .idle
+                    }
+                    return phase
+                }
                 updateStreamingState()
             }
         }
@@ -475,20 +510,42 @@ final class UIState: ObservableObject {
         if let chatService = chatService {
             Task {
                 await chatService.stop(conversationId: conversationId)
-                isStreamingById[conversationId] = false
-                isGlobalStreaming = false
-                updateStreamingState()
+                setPhase(.idle, for: conversationId)
             }
+        } else {
+            setPhase(.idle, for: conversationId)
         }
     }
     
     func isStreaming(_ conversationId: UUID) -> Bool {
-        isStreamingById[conversationId] ?? false
+        phase(for: conversationId).isInFlight
+    }
+
+    func phase(for conversationId: UUID) -> ConversationRequestPhase {
+        requestPhaseById[conversationId] ?? .idle
     }
     
+    private func setPhase(_ phase: ConversationRequestPhase, for conversationId: UUID) {
+        if phase == .idle {
+            requestPhaseById.removeValue(forKey: conversationId)
+        } else {
+            requestPhaseById[conversationId] = phase
+        }
+        updateStreamingState()
+    }
+
+    private func setPendingPhase(_ phase: ConversationRequestPhase) {
+        pendingNewConversationPhase = phase
+        updateStreamingState()
+    }
+
     private func updateStreamingState() {
-        let anyStreaming = isGlobalStreaming || isStreamingById.values.contains(true)
-        isStreamingResponse = anyStreaming
+        let anyInFlight = pendingNewConversationPhase.isInFlight || requestPhaseById.values.contains { $0.isInFlight }
+        let anyStreaming = requestPhaseById.values.contains {
+            if case .streaming = $0 { return true }
+            return false
+        }
+        isStreamingResponse = anyInFlight
         isAssistantTyping = anyStreaming
     }
 
@@ -523,16 +580,19 @@ final class UIState: ObservableObject {
         conversations[conversationIndex] = conversation
     }
 
-    private func markAssistantMessageAsError(conversationId: UUID, messageId: UUID, error: Error) {
-        let messageText = friendlyErrorMessage(for: error)
+    private func markAssistantMessageAsError(conversationId: UUID, messageId: UUID, error: Error, overrideMessage: String? = nil) {
+        let messageText = overrideMessage ?? friendlyErrorMessage(for: error)
         updateMessage(in: conversationId, messageId: messageId) { message in
             message.isLoading = false
             message.text = messageText
+            message.errorDescription = messageText
         }
     }
 
     private func removeLocal(id: Conversation.ID) {
         conversations.removeAll { $0.id == id }
+        requestPhaseById.removeValue(forKey: id)
+        updateStreamingState()
     }
 
     private func sortConversations(_ items: [Conversation]) -> [Conversation] {
@@ -550,32 +610,26 @@ final class UIState: ObservableObject {
             case .networkError(let underlying):
                 return friendlyErrorMessage(for: underlying)
             case .httpError(let statusCode, _):
-                return "⚠️ Il server Python ha risposto con l'errore \(statusCode). Riprova più tardi."
+                return "[!] Il server Python ha risposto con l'errore \(statusCode). Riprova piu' tardi."
             default:
-                return "⚠️ \(httpError.localizedDescription)"
+                return "[!] \(httpError.localizedDescription)"
             }
         }
         if let urlError = error as? URLError {
             switch urlError.code {
             case .notConnectedToInternet, .cannotConnectToHost, .timedOut, .networkConnectionLost:
-                return "⚠️ Impossibile comunicare con il servizio Python. Assicurati che sia in esecuzione e riprova."
+                return "[!] Impossibile comunicare con il servizio Python. Assicurati che sia in esecuzione e riprova."
             default:
-                return "⚠️ Errore di rete: \(urlError.localizedDescription)"
+                return "[!] Errore di rete: \(urlError.localizedDescription)"
             }
         }
-        return "⚠️ \(error.localizedDescription)"
+        return "[!] \(error.localizedDescription)"
     }
 
     private func handleError(_ error: Error) {
         let message = friendlyErrorMessage(for: error)
         print("UIState Error: \(error)")
         errorMessage = message
-        
-        // Auto-dismiss after 5 seconds
-        Task {
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
-            errorMessage = nil
-        }
     }
 }
 

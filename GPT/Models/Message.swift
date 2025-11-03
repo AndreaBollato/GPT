@@ -25,6 +25,7 @@ struct Message: Identifiable, Hashable, Codable {
     var isLoading: Bool = false
     var isPinned: Bool = false
     var isEdited: Bool = false
+    var errorDescription: String? = nil
 
     init(id: UUID = UUID(),
          role: MessageRole,
@@ -32,7 +33,8 @@ struct Message: Identifiable, Hashable, Codable {
          createdAt: Date = Date(),
          isLoading: Bool = false,
          isPinned: Bool = false,
-         isEdited: Bool = false) {
+         isEdited: Bool = false,
+         errorDescription: String? = nil) {
         self.id = id
         self.role = role
         self.text = text
@@ -40,5 +42,6 @@ struct Message: Identifiable, Hashable, Codable {
         self.isLoading = isLoading
         self.isPinned = isPinned
         self.isEdited = isEdited
+        self.errorDescription = errorDescription
     }
 }

@@ -6,6 +6,7 @@ struct MessageRowView: View {
     @State private var isHovering: Bool = false
 
     private var isUser: Bool { message.role.isUser }
+    private var isError: Bool { message.errorDescription != nil }
 
     var body: some View {
         HStack(alignment: .top, spacing: AppConstants.Spacing.md) {
@@ -28,7 +29,9 @@ struct MessageRowView: View {
         VStack(alignment: isUser ? .trailing : .leading, spacing: AppConstants.Spacing.xs) {
             Group {
                 if message.isLoading {
-                    skeleton
+                    loadingContent
+                } else if let error = message.errorDescription {
+                    errorContent(text: error)
                 } else if message.role.isAssistant || message.role == .system {
                     MarkdownMessageView(text: message.text)
                         .frame(maxWidth: AppConstants.Layout.messageMaxWidth, alignment: .leading)
@@ -60,6 +63,9 @@ struct MessageRowView: View {
     }
 
     private var bubbleBackground: some ShapeStyle {
+        if isError {
+            return AnyShapeStyle(AppColors.error.opacity(0.1))
+        }
         if message.role.isAssistant || message.role == .system {
             return AnyShapeStyle(AppColors.assistantBubble)
         } else {
@@ -69,25 +75,41 @@ struct MessageRowView: View {
 
     private var bubbleBorder: some View {
         Group {
-            if message.role.isAssistant || message.role == .system {
+            if isError {
+                RoundedRectangle(cornerRadius: AppConstants.Layout.bubbleCornerRadius, style: .continuous)
+                    .stroke(AppColors.error.opacity(0.6), lineWidth: 1)
+            } else if message.role.isAssistant || message.role == .system {
                 RoundedRectangle(cornerRadius: AppConstants.Layout.bubbleCornerRadius, style: .continuous)
                     .stroke(AppColors.divider, lineWidth: 1)
             }
         }
     }
 
-    private var skeleton: some View {
-        VStack(alignment: .leading, spacing: AppConstants.Spacing.xs) {
-            RoundedRectangle(cornerRadius: 4)
-                .fill(AppColors.divider.opacity(0.5))
-                .frame(width: 220, height: 12)
-            RoundedRectangle(cornerRadius: 4)
-                .fill(AppColors.divider.opacity(0.35))
-                .frame(width: 280, height: 12)
-            RoundedRectangle(cornerRadius: 4)
-                .fill(AppColors.divider.opacity(0.25))
-                .frame(width: 180, height: 12)
+    private var loadingContent: some View {
+        HStack(spacing: AppConstants.Spacing.sm) {
+            ProgressView()
+                .progressViewStyle(.circular)
+                .controlSize(.small)
+                .tint(AppColors.accent)
+            Text("Assistente sta scrivendo...")
+                .font(AppTypography.badge)
+                .foregroundColor(AppColors.subtleText)
         }
+        .frame(maxWidth: AppConstants.Layout.messageMaxWidth, alignment: .leading)
+    }
+
+    private func errorContent(text: String) -> some View {
+        HStack(alignment: .top, spacing: AppConstants.Spacing.sm) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(AppColors.error)
+                .padding(.top, 2)
+            Text(text)
+                .font(AppTypography.messageBody)
+                .foregroundColor(AppColors.error)
+                .multilineTextAlignment(.leading)
+        }
+        .frame(maxWidth: AppConstants.Layout.messageMaxWidth, alignment: .leading)
     }
 
     private var timestamp: String {

@@ -7,19 +7,20 @@ struct ErrorBanner: View {
     var body: some View {
         HStack(spacing: AppConstants.Spacing.md) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.white)
-                .font(.system(size: 16))
+                .foregroundStyle(Color.white)
+                .font(.system(size: 18, weight: .semibold))
             
             Text(message)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.white)
-                .lineLimit(2)
+                .foregroundStyle(Color.white)
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
             
             Spacer()
             
             Button(action: onDismiss) {
                 Image(systemName: "xmark")
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(Color.white.opacity(0.85))
                     .font(.system(size: 14, weight: .semibold))
             }
             .buttonStyle(.plain)
@@ -28,9 +29,15 @@ struct ErrorBanner: View {
         .padding(.vertical, AppConstants.Spacing.md)
         .background(
             RoundedRectangle(cornerRadius: AppConstants.Layout.cardCornerRadius, style: .continuous)
-                .fill(Color.red.opacity(0.9))
+                .fill(
+                    LinearGradient(
+                        colors: [AppColors.error.opacity(0.95), AppColors.error.opacity(0.85)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         )
-        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+        .shadow(color: AppColors.error.opacity(0.35), radius: 12, x: 0, y: 8)
     }
 }
 

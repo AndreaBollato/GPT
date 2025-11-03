@@ -140,19 +140,19 @@ Status: `200 OK`
 ```json
 [
   {
-    "id": "gpt-4",
-    "name": "GPT-4",
-    "description": "Most capable model, best for complex tasks"
+    "id": "gpt-5",
+    "name": "GPT-5",
+    "description": "Modello unificato di OpenAI: prestazioni eccellenti in scrittura, programmazione, matematica e ragionamento multimodale"  
   },
   {
-    "id": "gpt-3.5-turbo",
-    "name": "GPT-3.5 Turbo",
-    "description": "Fast and efficient model for most tasks"
+    "id": "claude-sonnet-4.5",
+    "name": "Claude Sonnet 4.5",
+    "description": "Ultima versione della linea Anthropic Sonnet: alto livello di ragionamento e ottimizzazione per codice e applicazioni aziendali"  
   },
   {
-    "id": "claude-3-opus",
-    "name": "Claude 3 Opus",
-    "description": "Powerful model with strong reasoning"
+    "id": "claude-opus-4.1",
+    "name": "Claude Opus 4.1",
+    "description": "Versione top della linea Opus di Anthropic: modello più potente per compiti complessi e contesti estesi"  
   }
 ]
 ```
@@ -795,43 +795,9 @@ Nota: Ogni messaggio SSE termina con doppio newline (`\n\n`).
 
 ### Modalità di Streaming
 
-Il backend può scegliere una di queste modalità:
+#### Modalità Mista (Raccomandata)
 
-#### Modalità 1: Delta Text (Consigliata)
-
-Invia solo gli incrementi di testo:
-
-```
-data: {"deltaText":"Async","done":false}
-
-data: {"deltaText":"/await","done":false}
-
-data: {"deltaText":" è","done":false}
-
-data: {"deltaText":" fantastico!","done":true}
-```
-
-Il frontend accumula i delta per costruire il testo completo.
-
-#### Modalità 2: Full Text
-
-Invia il testo completo ad ogni evento:
-
-```
-data: {"fullText":"Async","done":false}
-
-data: {"fullText":"Async/await","done":false}
-
-data: {"fullText":"Async/await è","done":false}
-
-data: {"fullText":"Async/await è fantastico!","done":true}
-```
-
-Il frontend sostituisce il testo ad ogni evento.
-
-#### Modalità 3: Mista (Raccomandata)
-
-Invia delta durante lo streaming e fullText alla fine:
+Invia deltaText durante lo streaming e fullText alla fine:
 
 ```
 data: {"deltaText":"Async","done":false}
@@ -851,7 +817,7 @@ data: {"conversationId":"550e8400-e29b-41d4-a716-446655440000","messageId":"ee0e
 
 ### Best Practices SSE
 
-1. **Timeout**: Mantenere la connessione aperta per max 5 minuti
+1. **Timeout**: Mantenere la connessione aperta per max 5 minuti o fino alla fine dello streaming
 2. **Heartbeat**: Inviare eventi periodici per mantenere la connessione viva
 3. **Error Handling**: Chiudere correttamente lo stream in caso di errore
 4. **IDs**: Includere `messageId` per permettere il tracking
@@ -1211,28 +1177,3 @@ curl -N -H "Accept: text/event-stream" \
 - Paginazione con cursori
 - CRUD completo per conversazioni
 - Operazioni: pin, duplicate, delete
-
-### Possibili Future Estensioni
-
-- Autenticazione e autorizzazione
-- Condivisione conversazioni
-- Export conversazioni (PDF, Markdown)
-- Ricerca full-text nei messaggi
-- Allegati e immagini
-- Modifica messaggi esistenti
-- Regenerate risposta assistant
-- Branching conversazioni
-
----
-
-## Supporto
-
-Per domande o chiarimenti su questa API:
-
-1. Consultare gli esempi completi in questo documento
-2. Verificare i codici sorgente Swift in `GPT/API/` e `GPT/Repositories/`
-3. Testare con dati mock per comprendere il comportamento atteso
-
-**Versione Documento**: 1.0  
-**Data**: Novembre 2024  
-**Ultima Modifica**: 3 Novembre 2024  

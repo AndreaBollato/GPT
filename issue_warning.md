@@ -37,3 +37,16 @@ Il problema principale è quasi certamente nel **flusso di dati (data flow)** e 
 2.  **Centralizzare l'Accesso ai Dati:** `ChatView` utilizzerà l'ID per recuperare l'oggetto `Conversation` più recente direttamente dalla fonte della verità, ovvero l'oggetto `@EnvironmentObject UIState`.
 
 Questo approccio, più in linea con le best practice di SwiftUI, garantisce che `ChatView` sia sempre sincronizzata con lo stato dell'applicazione e reagisca correttamente ai cambiamenti, risolvendo alla radice il problema di mancato aggiornamento. Continuare a modificare l'implementazione attuale sarebbe inefficiente e non risolverebbe il problema di fondo.
+
+## Post-mortem: perché prima non funzionava, perché ora sì
+
+In origine l'applicazione partiva sempre in modalità *mock* (`AppConstants.API.useRemoteBackend = false`). In quel contesto non viene avviato nessun backend Python, quindi `UIState.submit` si fermava alla ramificazione locale e non creava mai il messaggio segnaposto dell'assistente. La vista `ChatView`, pur essendo già stata disaccoppiata su `conversationID`, non riceveva nessun aggiornamento di stato perché il flusso ottimistico era attivo solo nello scenario remoto.
+
+L'abilitazione del backend remoto ha evidenziato un secondo vincolo: quando la creazione della conversazione remota falliva (server spento o irraggiungibile), la conversazione provvisoria veniva scartata e la UI rimaneva vuota. Questo rendeva impossibile mostrare uno stato "pending" persistente o un errore contestuale.
+
+L'implementazione aggiornata risolve entrambi i punti:
+
+- il flag remoto è attivo di default (`useRemoteBackend = true`) così ogni invio passa dal flusso asincrono pensato per il backend, anche quando il server non risponde;
+- `UIState.submitRemote` crea sempre una conversazione provvisoria con un messaggio dell'assistente marcato `.pending`. Se la creazione remota riesce, la conversazione temporanea viene sostituita; se fallisce, il placeholder rimane in UI e viene promosso a `.error`, mentre il banner globale mostra lo stesso messaggio amichevole.
+
+In questo modo l'utente percepisce immediatamente che il sistema sta lavorando (spinner nel bubble e nel composer) e, nel caso di backend non disponibile, riceve un avviso chiaro senza perdere il contesto della nuova conversazione.

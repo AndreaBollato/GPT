@@ -55,6 +55,7 @@ final class UIState: ObservableObject {
     // Per-conversation request phases
     @Published private var requestPhaseById: [UUID: ConversationRequestPhase] = [:]
     @Published private var pendingNewConversationPhase: ConversationRequestPhase = .idle
+    private var pendingRemoteConversationIDs: Set<UUID> = []
     
     // Pagination cursors
     private var conversationCursor: String?
@@ -281,54 +282,105 @@ final class UIState: ObservableObject {
     
     private func submitRemote(text: String, conversationID: UUID?) async {
         guard let repo = repo, let chatService = chatService else { return }
-        
+
         let userMessage = Message(role: .user, text: text, status: .complete)
+        let placeholderMessage = Message(role: .assistant, text: "", status: .pending)
+        let currentPlaceholderId = placeholderMessage.id
         var targetConvId = conversationID
-        var placeholderId: UUID?
-        
-        if let id = targetConvId {
-            setPhase(.sending, for: id)
-        } else {
-            setPendingPhase(.sending)
-        }
-        
-        do {
-            // Create conversation if needed
-            if targetConvId == nil {
-                let newConv = try await repo.createConversation(initialMessage: userMessage, modelId: activeModelId)
-                updateLocal(newConv)
-                selectedConversationID = newConv.id
-                targetConvId = newConv.id
-                setPendingPhase(.idle)
-                setPhase(.sending, for: newConv.id)
+        var remoteConversationId = conversationID
+        var temporaryConversationId: UUID?
+        let needsRemoteCreation = conversationID.flatMap { pendingRemoteConversationIDs.contains($0) } ?? false
+        let isNewConversation = conversationID == nil || needsRemoteCreation
+
+        if let existingId = conversationID,
+           !needsRemoteCreation,
+           let index = conversations.firstIndex(where: { $0.id == existingId }) {
+            setPhase(.sending, for: existingId)
+
+            var conversation = conversations[index]
+            conversation.messages.append(userMessage)
+
+            conversation.messages.append(placeholderMessage)
+            conversations[index] = conversation
+        } else if isNewConversation {
+            if conversationID == nil {
+                setPendingPhase(.sending)
+            }
+
+            if let existingId = conversationID,
+               needsRemoteCreation,
+               let index = conversations.firstIndex(where: { $0.id == existingId }) {
+                var conversation = conversations[index]
+                conversation.messages.append(userMessage)
+                conversation.messages.append(placeholderMessage)
+                conversations[index] = conversation
+
+                temporaryConversationId = existingId
+                targetConvId = existingId
+                pendingRemoteConversationIDs.insert(existingId)
+                setPhase(.sending, for: existingId)
             } else {
-                // Add user message optimistically
-                if let id = targetConvId, let index = conversations.firstIndex(where: { $0.id == id }) {
-                    var conversation = conversations[index]
-                    conversation.messages.append(userMessage)
+                var provisionalConversation = Conversation(
+                    id: UUID(),
+                    title: provisionalTitle(from: text),
+                    modelId: activeModelId,
+                    messages: [userMessage, placeholderMessage]
+                )
+
+                temporaryConversationId = provisionalConversation.id
+                pendingRemoteConversationIDs.insert(provisionalConversation.id)
+                updateLocal(provisionalConversation)
+                selectedConversationID = provisionalConversation.id
+                targetConvId = provisionalConversation.id
+                setPhase(.sending, for: provisionalConversation.id)
+            }
+        } else if let id = conversationID {
+            // Conversation may not yet be loaded; still mark phase so the UI reflects activity.
+            setPhase(.sending, for: id)
+        }
+
+        do {
+            if isNewConversation {
+                let newConv = try await repo.createConversation(initialMessage: userMessage, modelId: activeModelId)
+                remoteConversationId = newConv.id
+
+                if let tempId = temporaryConversationId {
+                    removeLocal(id: tempId)
+                    pendingRemoteConversationIDs.remove(tempId)
+                }
+
+                var synchronizedConversation = newConv
+                if !synchronizedConversation.messages.contains(where: { $0.id == currentPlaceholderId }) {
+                    let placeholder = Message(id: currentPlaceholderId, role: .assistant, text: "", status: .pending)
+                    synchronizedConversation.messages.append(placeholder)
+                }
+
+                updateLocal(synchronizedConversation)
+                selectedConversationID = synchronizedConversation.id
+                targetConvId = synchronizedConversation.id
+                if conversationID == nil {
+                    setPendingPhase(.idle)
+                }
+                setPhase(.sending, for: synchronizedConversation.id)
+            }
+
+            guard let convId = targetConvId, let remoteId = remoteConversationId else {
+                return
+            }
+
+            if let index = conversations.firstIndex(where: { $0.id == convId }) {
+                var conversation = conversations[index]
+                if !conversation.messages.contains(where: { $0.id == currentPlaceholderId }) {
+                    let placeholder = Message(id: currentPlaceholderId, role: .assistant, text: "", status: .pending)
+                    conversation.messages.append(placeholder)
                     conversations[index] = conversation
                 }
             }
-            
-            guard let convId = targetConvId else {
-                return
-            }
-            
-            // Add placeholder assistant message
-            let assistantPlaceholder = Message(role: .assistant, text: "", status: .pending)
-            let currentPlaceholderId = assistantPlaceholder.id
-            placeholderId = currentPlaceholderId
-            if let index = conversations.firstIndex(where: { $0.id == convId }) {
-                var conversation = conversations[index]
-                conversation.messages.append(assistantPlaceholder)
-                conversations[index] = conversation
-            }
-            
+
             setPhase(.streaming, for: convId)
-            
-            // Stream reply
+
             await chatService.streamReply(
-                conversationId: convId,
+                conversationId: remoteId,
                 userText: text,
                 onDelta: { [weak self] delta in
                     guard let self = self else { return }
@@ -352,6 +404,7 @@ final class UIState: ObservableObject {
                     self.setPhase(.error(message: friendly), for: convId)
                     self.updateMessage(in: convId, messageId: currentPlaceholderId) { message in
                         message.status = .error(friendly)
+                        message.text = friendly
                     }
                     self.handleError(error)
                 }
@@ -364,10 +417,9 @@ final class UIState: ObservableObject {
             }
             if let convId = targetConvId {
                 setPhase(.error(message: friendly), for: convId)
-            }
-            if let convId = targetConvId, let placeholderId = placeholderId {
-                updateMessage(in: convId, messageId: placeholderId) { message in
+                updateMessage(in: convId, messageId: currentPlaceholderId) { message in
                     message.status = .error(friendly)
+                    message.text = friendly
                 }
             }
             handleError(error)
@@ -597,6 +649,7 @@ final class UIState: ObservableObject {
             phases.removeValue(forKey: id)
             requestPhaseById = phases
         }
+        pendingRemoteConversationIDs.remove(id)
         updateStreamingState()
     }
 
@@ -607,6 +660,14 @@ final class UIState: ObservableObject {
             }
             return lhs.lastActivityDate > rhs.lastActivityDate
         }
+    }
+
+    private func provisionalTitle(from text: String) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "Nuova chat" }
+        let firstLine = trimmed.split(separator: "\n").first ?? Substring(trimmed)
+        let limited = firstLine.prefix(60)
+        return limited.count == firstLine.count ? String(limited) : String(limited) + "..."
     }
     
     private func friendlyErrorMessage(for error: Error) -> String {

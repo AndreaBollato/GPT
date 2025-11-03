@@ -3,7 +3,7 @@ import SwiftUI
 enum AppConstants {
     enum API {
         static let baseURL = "http://127.0.0.1:8000"
-        static let useRemoteBackend = false // Set to true to use remote backend
+        static let useRemoteBackend = true // Set to false to fall back to dati locali mock
     }
     
     enum Layout {

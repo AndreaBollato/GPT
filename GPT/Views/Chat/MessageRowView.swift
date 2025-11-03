@@ -123,12 +123,18 @@ struct MessageRowView: View {
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(AppColors.error)
                 .padding(.top, 2)
-            Text(text)
+            Text(sanitizedErrorMessage(text))
                 .font(AppTypography.messageBody)
                 .foregroundColor(AppColors.error)
                 .multilineTextAlignment(.leading)
         }
         .frame(maxWidth: AppConstants.Layout.messageMaxWidth, alignment: .leading)
+    }
+
+    private func sanitizedErrorMessage(_ text: String) -> String {
+        guard text.hasPrefix("[!]") else { return text }
+        let trimmed = text.dropFirst(3).trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? text : String(trimmed)
     }
 
     private var timestamp: String {

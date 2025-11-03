@@ -14,6 +14,10 @@ struct ComposerView: View {
         text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var shouldDisableSendButton: Bool {
+        phase.isInFlight || isSendDisabled
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: AppConstants.Spacing.sm) {
             composerSurface
@@ -102,8 +106,8 @@ struct ComposerView: View {
             Image(systemName: "paperplane.fill")
                 .font(.system(size: 15, weight: .semibold))
         }
-        .disabled(isSendDisabled)
-        .opacity(isSendDisabled ? 0.4 : 1)
+        .disabled(shouldDisableSendButton)
+        .opacity(shouldDisableSendButton ? 0.4 : 1)
         .buttonStyle(AppButtonStyle(variant: .primary, size: .regular, isIconOnly: true))
         .keyboardShortcut(AppConstants.KeyboardShortcuts.sendMessage)
     }
@@ -150,12 +154,18 @@ struct ComposerView: View {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(AppColors.error)
-            Text(text)
+            Text(sanitizedErrorMessage(text))
                 .font(AppTypography.badge)
                 .foregroundColor(AppColors.error)
                 .multilineTextAlignment(.leading)
         }
         .padding(.horizontal, AppConstants.Spacing.lg)
+    }
+
+    private func sanitizedErrorMessage(_ text: String) -> String {
+        guard text.hasPrefix("[!]") else { return text }
+        let trimmed = text.dropFirst(3).trimmingCharacters(in: .whitespaces)
+        return trimmed.isEmpty ? text : String(trimmed)
     }
 
     private var isStreamingPhase: Bool {

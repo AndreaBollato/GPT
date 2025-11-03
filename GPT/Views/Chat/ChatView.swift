@@ -105,6 +105,10 @@ struct ChatView: View {
             .onChange(of: conversation.messages.count) {
                 scrollToBottom(proxy: proxy, for: conversation)
             }
+            .onChange(of: conversation.messages.last?.status) { newStatus in
+                guard newStatus != nil else { return }
+                scrollToBottom(proxy: proxy, for: conversation)
+            }
             .onChange(of: requestPhase) {
                 if requestPhase.isInFlight {
                     scrollToBottom(proxy: proxy, for: conversation)

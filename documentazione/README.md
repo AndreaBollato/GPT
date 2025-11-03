@@ -111,6 +111,26 @@ Questa è la documentazione completa dell'applicazione GPT, un client nativo mac
 - Pattern comuni (ottimistico, async/await, callbacks)
 - Gestione errori nei flussi
 
+### [07. API Endpoints - Riferimento Completo](07-api-endpoints.md)
+**Cosa troverete**: Documentazione completa di tutti gli endpoint API con URL, metodi HTTP, parametri, request body, response format e esempi pratici.
+
+**Adatto per**:
+- Sviluppatori backend che implementano l'API
+- Sviluppatori frontend che integrano le API
+- Team di testing per creare test di integrazione
+- DevOps per configurazione e deployment
+
+**Argomenti chiave**:
+- Tutti gli endpoint API (Models, Conversations, Messages)
+- URL completi e metodi HTTP
+- Formato richieste (query params, body JSON)
+- Formato risposte con esempi reali
+- Server-Sent Events (SSE) per streaming
+- Gestione errori e status codes
+- Paginazione con cursori
+- Best practices implementazione backend
+- Esempi completi di flussi API
+
 ## Come Utilizzare questa Documentazione
 
 ### Per Nuovi Sviluppatori
@@ -128,13 +148,14 @@ Questa è la documentazione completa dell'applicazione GPT, un client nativo mac
 1. **Referenza rapida**: Consultate il documento specifico per l'area su cui state lavorando
 2. **Debugging**: [06. Flussi di Dati](06-flussi-dati-casi-uso.md) con i diagrammi di sequenza
 3. **Estensioni**: [02. Architettura](02-architettura-layer.md) per capire dove aggiungere nuove feature
-4. **API Integration**: [05. Networking](05-networking-backend.md) per il contratto backend
+4. **API Integration**: [07. API Endpoints](07-api-endpoints.md) per il riferimento completo degli endpoint
 
 ### Per Backend Developers
 
-1. **Iniziate con** [05. Networking](05-networking-backend.md) per il contratto API completo
-2. **Consultate** [03. Modelli di Dominio](03-modelli-dominio.md) per le strutture dati
-3. **Verificate** [06. Flussi di Dati](06-flussi-dati-casi-uso.md) per comprendere come vengono usate le API
+1. **Iniziate con** [07. API Endpoints](07-api-endpoints.md) per il riferimento completo di tutti gli endpoint
+2. **Alternative**: [05. Networking](05-networking-backend.md) per il contratto API con contesto architetturale
+3. **Consultate** [03. Modelli di Dominio](03-modelli-dominio.md) per le strutture dati
+4. **Verificate** [06. Flussi di Dati](06-flussi-dati-casi-uso.md) per comprendere come vengono usate le API
 
 ### Per Designer/UX
 

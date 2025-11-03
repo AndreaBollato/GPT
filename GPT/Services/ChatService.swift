@@ -1,14 +1,14 @@
 import Foundation
 
 @MainActor
-final class ChatService: ObservableObject {
+final class ChatService {
     private let repo: ConversationsRepository
     private let sse: SSEClient
     private let streams = StreamingCenter()
-    
-    init(repo: ConversationsRepository, sse: SSEClient = SSEClient()) {
+
+    init(repo: ConversationsRepository, sse: SSEClient? = nil) {
         self.repo = repo
-        self.sse = sse
+        self.sse = sse ?? SSEClient()
     }
     
     /// Stream a reply from the assistant for the given conversation

@@ -30,6 +30,7 @@ final class UIState: ObservableObject {
     @Published private(set) var hasMoreConversations: Bool = true
     
     // Per-conversation streaming state
+    @Published private var isGlobalStreaming: Bool = false
     @Published private var isStreamingById: [UUID: Bool] = [:]
     
     // Pagination cursors
@@ -78,37 +79,30 @@ final class UIState: ObservableObject {
     
     func loadInitial() async {
         guard let repo = repo else { return }
-        
+
         isLoadingModels = true
         isLoadingConversations = true
-        
-        async let modelsTask: Void = {
-            do {
-                self.availableModels = try await repo.fetchModels()
-                if self.activeModelId.isEmpty, let first = self.availableModels.first {
-                    self.activeModelId = first.id
-                }
-            } catch {
-                self.handleError(error)
+
+        do {
+            defer { isLoadingModels = false }
+            let models = try await repo.fetchModels()
+            availableModels = models
+            if activeModelId.isEmpty, let first = models.first {
+                activeModelId = first.id
             }
-        }()
-        
-        async let conversationsTask: Void = {
-            do {
-                let result = try await repo.listConversations(limit: 10, cursor: nil)
-                self.conversations = result.items
-                self.conversationCursor = result.nextCursor
-                self.hasMoreConversations = result.nextCursor != nil
-            } catch {
-                self.handleError(error)
-            }
-        }()
-        
-        await modelsTask
-        await conversationsTask
-        
-        isLoadingModels = false
-        isLoadingConversations = false
+        } catch {
+            handleError(error)
+        }
+
+        do {
+            defer { isLoadingConversations = false }
+            let result = try await repo.listConversations(limit: 10, cursor: nil)
+            conversations = result.items
+            conversationCursor = result.nextCursor
+            hasMoreConversations = result.nextCursor != nil
+        } catch {
+            handleError(error)
+        }
     }
     
     // MARK: - Load More (Pagination)
@@ -222,7 +216,7 @@ final class UIState: ObservableObject {
         guard !trimmed.isEmpty else { return conversationID }
 
         // Remote backend
-        if let repo = repo, let chatService = chatService {
+        if repo != nil, chatService != nil {
             Task {
                 await submitRemote(text: trimmed, conversationID: conversationID)
             }
@@ -262,6 +256,10 @@ final class UIState: ObservableObject {
         
         let userMessage = Message(role: .user, text: text)
         var targetConvId = conversationID
+        var placeholderId: UUID?
+        
+        isGlobalStreaming = true
+        updateStreamingState()
         
         do {
             // Create conversation if needed
@@ -279,18 +277,24 @@ final class UIState: ObservableObject {
                 }
             }
             
-            guard let convId = targetConvId else { return }
+            guard let convId = targetConvId else {
+                isGlobalStreaming = false
+                updateStreamingState()
+                return
+            }
             
             // Add placeholder assistant message
             let assistantPlaceholder = Message(id: UUID(), role: .assistant, text: "", isLoading: true)
+            let currentPlaceholderId = assistantPlaceholder.id
+            placeholderId = currentPlaceholderId
             if let index = conversations.firstIndex(where: { $0.id == convId }) {
                 var conversation = conversations[index]
                 conversation.messages.append(assistantPlaceholder)
                 conversations[index] = conversation
             }
             
-            let placeholderId = assistantPlaceholder.id
             isStreamingById[convId] = true
+            isGlobalStreaming = false
             updateStreamingState()
             
             // Stream reply
@@ -299,46 +303,45 @@ final class UIState: ObservableObject {
                 userText: text,
                 onDelta: { [weak self] delta in
                     guard let self = self else { return }
-                    if let index = self.conversations.firstIndex(where: { $0.id == convId }) {
-                        var conversation = self.conversations[index]
-                        if let msgIndex = conversation.messages.firstIndex(where: { $0.id == placeholderId }) {
-                            var msg = conversation.messages[msgIndex]
-                            msg.text += delta
-                            msg.isLoading = false
-                            conversation.messages[msgIndex] = msg
-                            self.conversations[index] = conversation
-                        }
+                    self.updateMessage(in: convId, messageId: currentPlaceholderId) { message in
+                        message.text += delta
+                        message.isLoading = false
                     }
                 },
                 onDone: { [weak self] in
                     guard let self = self else { return }
                     self.isStreamingById[convId] = false
                     self.updateStreamingState()
-                    
-                    // Mark message as no longer loading
-                    if let index = self.conversations.firstIndex(where: { $0.id == convId }) {
-                        var conversation = self.conversations[index]
-                        if let msgIndex = conversation.messages.firstIndex(where: { $0.id == placeholderId }) {
-                            var msg = conversation.messages[msgIndex]
-                            msg.isLoading = false
-                            conversation.messages[msgIndex] = msg
-                            self.conversations[index] = conversation
-                        }
+                    self.updateMessage(in: convId, messageId: currentPlaceholderId) { message in
+                        message.isLoading = false
                     }
                 },
                 onError: { [weak self] error in
                     guard let self = self else { return }
                     self.isStreamingById[convId] = false
                     self.updateStreamingState()
+                    self.markAssistantMessageAsError(conversationId: convId, messageId: currentPlaceholderId, error: error)
                     self.handleError(error)
                 }
             )
         } catch {
+            if conversationID == nil {
+                homeDraft = text
+            }
+            if let convId = targetConvId {
+                isStreamingById[convId] = false
+            }
+            isGlobalStreaming = false
+            updateStreamingState()
+            if let convId = targetConvId, let placeholderId {
+                markAssistantMessageAsError(conversationId: convId, messageId: placeholderId, error: error)
+            }
             handleError(error)
         }
     }
 
     func appendAssistantMessage(_ text: String, to conversationID: Conversation.ID) {
+        guard let store = store else { return }
         let message = Message(role: .assistant, text: text)
         guard let conversation = store.updateConversation(id: conversationID, mutate: { $0.messages.append(message) }) else {
             return
@@ -347,6 +350,7 @@ final class UIState: ObservableObject {
     }
 
     func clearConversation(id: Conversation.ID) {
+        guard let store = store else { return }
         guard let conversation = store.updateConversation(id: id, mutate: { $0.messages.removeAll() }) else {
             return
         }
@@ -460,6 +464,7 @@ final class UIState: ObservableObject {
         if let chatService = chatService {
             Task {
                 await chatService.stopAll()
+                isGlobalStreaming = false
                 isStreamingById.removeAll()
                 updateStreamingState()
             }
@@ -471,6 +476,7 @@ final class UIState: ObservableObject {
             Task {
                 await chatService.stop(conversationId: conversationId)
                 isStreamingById[conversationId] = false
+                isGlobalStreaming = false
                 updateStreamingState()
             }
         }
@@ -481,8 +487,9 @@ final class UIState: ObservableObject {
     }
     
     private func updateStreamingState() {
-        isStreamingResponse = isStreamingById.values.contains(true)
-        isAssistantTyping = isStreamingResponse
+        let anyStreaming = isGlobalStreaming || isStreamingById.values.contains(true)
+        isStreamingResponse = anyStreaming
+        isAssistantTyping = anyStreaming
     }
 
     private func filteredConversations(includingPinned: Bool) -> [Conversation] {
@@ -508,6 +515,22 @@ final class UIState: ObservableObject {
         conversations = sortConversations(conversations)
     }
 
+    private func updateMessage(in conversationId: UUID, messageId: UUID, mutate: (inout Message) -> Void) {
+        guard let conversationIndex = conversations.firstIndex(where: { $0.id == conversationId }) else { return }
+        var conversation = conversations[conversationIndex]
+        guard let messageIndex = conversation.messages.firstIndex(where: { $0.id == messageId }) else { return }
+        mutate(&conversation.messages[messageIndex])
+        conversations[conversationIndex] = conversation
+    }
+
+    private func markAssistantMessageAsError(conversationId: UUID, messageId: UUID, error: Error) {
+        let messageText = friendlyErrorMessage(for: error)
+        updateMessage(in: conversationId, messageId: messageId) { message in
+            message.isLoading = false
+            message.text = messageText
+        }
+    }
+
     private func removeLocal(id: Conversation.ID) {
         conversations.removeAll { $0.id == id }
     }
@@ -521,9 +544,32 @@ final class UIState: ObservableObject {
         }
     }
     
+    private func friendlyErrorMessage(for error: Error) -> String {
+        if let httpError = error as? HTTPError {
+            switch httpError {
+            case .networkError(let underlying):
+                return friendlyErrorMessage(for: underlying)
+            case .httpError(let statusCode, _):
+                return "⚠️ Il server Python ha risposto con l'errore \(statusCode). Riprova più tardi."
+            default:
+                return "⚠️ \(httpError.localizedDescription)"
+            }
+        }
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .notConnectedToInternet, .cannotConnectToHost, .timedOut, .networkConnectionLost:
+                return "⚠️ Impossibile comunicare con il servizio Python. Assicurati che sia in esecuzione e riprova."
+            default:
+                return "⚠️ Errore di rete: \(urlError.localizedDescription)"
+            }
+        }
+        return "⚠️ \(error.localizedDescription)"
+    }
+
     private func handleError(_ error: Error) {
-        print("UIState Error: \(error.localizedDescription)")
-        errorMessage = error.localizedDescription
+        let message = friendlyErrorMessage(for: error)
+        print("UIState Error: \(error)")
+        errorMessage = message
         
         // Auto-dismiss after 5 seconds
         Task {

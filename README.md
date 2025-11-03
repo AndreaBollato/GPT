@@ -164,12 +164,20 @@ open GPT.xcodeproj
 
 ### 2. Add New Files to Project
 
+**🚀 Automated method (recommended):**
+```bash
+ruby add_missing_files.rb
+```
+
+**📋 Manual method:**
 See `XCODE_PROJECT_UPDATE.md` for detailed instructions.
 
 **Quick steps:**
 1. Create groups: Networking, API, Repositories, Services
 2. Add files from each directory to corresponding group
 3. Ensure "Add to targets: GPT" is checked
+
+**Note:** The automated script safely adds only missing files and skips duplicates.
 
 ### 3. Build
 ```bash

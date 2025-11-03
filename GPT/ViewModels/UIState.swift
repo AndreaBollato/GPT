@@ -526,11 +526,13 @@ final class UIState: ObservableObject {
     }
     
     private func setPhase(_ phase: ConversationRequestPhase, for conversationId: UUID) {
+        var phases = requestPhaseById
         if phase == .idle {
-            requestPhaseById.removeValue(forKey: conversationId)
+            phases.removeValue(forKey: conversationId)
         } else {
-            requestPhaseById[conversationId] = phase
+            phases[conversationId] = phase
         }
+        requestPhaseById = phases
         updateStreamingState()
     }
 

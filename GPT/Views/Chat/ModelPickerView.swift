@@ -6,115 +6,88 @@ struct ModelPickerView: View {
     var selectedModelId: String
     var onSelect: (String) -> Void
 
+    @State private var isOpen: Bool = false
+
     private var selectedModel: ChatModel? {
         uiState.availableModels.first(where: { $0.id == selectedModelId })
     }
 
     var body: some View {
-        Menu {
-            Section(header: menuHeader) {
-                ForEach(uiState.availableModels) { model in
-                    Button(action: { onSelect(model.id) }) {
-                        menuRow(for: model)
+        VStack(alignment: .leading, spacing: 8) {
+            // Bottone che apre/chiude il menu e mostra la selezione corrente
+            Button(action: { 
+                withAnimation(.easeInOut(duration: 0.18)) { 
+                    isOpen.toggle() 
+                } 
+            }) {
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(selectedModel?.displayName ?? "Seleziona modello")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(.primary)
+                        if let description = selectedModel?.description {
+                            Text(description)
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
                     }
-                    .buttonStyle(.plain)
+
+                    Spacer()
+
+                    // Se la selezione esiste mostriamo checkmark
+                    if selectedModel != nil {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(AppColors.accent)
+                    }
+
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .rotationEffect(.degrees(isOpen ? 180 : 0))
+                        .foregroundColor(.secondary)
                 }
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color(nsColor: NSColor.windowBackgroundColor))
+                )
             }
-        } label: {
-            pickerLabel
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-    }
+            .buttonStyle(PlainButtonStyle())
 
-    private func menuRow(for model: ChatModel) -> some View {
-        HStack(alignment: .center, spacing: AppConstants.Spacing.md) {
-            modelBadge(for: model)
-
-            VStack(alignment: .leading, spacing: AppConstants.Spacing.xs) {
-                Text(model.displayName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.primary)
-                Text(model.description)
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(AppColors.subtleText)
-                    .lineLimit(2)
-            }
-
-            Spacer(minLength: AppConstants.Spacing.sm)
-
-            if model.id == selectedModelId {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(AppColors.accent)
-            }
-        }
-        .padding(.horizontal, AppConstants.Spacing.md)
-        .padding(.vertical, AppConstants.Spacing.sm)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(model.id == selectedModelId ? highlightColor(for: model).opacity(0.18) : Color.clear)
-        )
-    }
-
-    private var pickerLabel: some View {
-        VStack(spacing: AppConstants.Spacing.xs) {
-            Text("Modello")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(AppColors.subtleText)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            HStack(spacing: AppConstants.Spacing.md) {
-                if let selectedModel {
-                    modelBadge(for: selectedModel)
+            // Menù custom
+            if isOpen {
+                VStack(spacing: 0) {
+                    ForEach(uiState.availableModels) { model in
+                        ModelRow(model: model,
+                                 isSelected: model.id == selectedModelId) {
+                            withAnimation(.easeInOut(duration: 0.12)) {
+                                onSelect(model.id)
+                                isOpen = false
+                            }
+                        }
+                        .background(Color.clear)
+                        if model.id != uiState.availableModels.last?.id {
+                            Divider()
+                                .padding(.leading, 56)
+                        }
+                    }
                 }
-
-                VStack(alignment: .leading, spacing: AppConstants.Spacing.xs) {
-                    Text(selectedModel?.displayName ?? "Seleziona modello")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Color.primary)
-                    Text(selectedModel?.description ?? "Scegli una configurazione")
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundStyle(AppColors.subtleText)
-                        .lineLimit(1)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(AppColors.subtleText)
-                    .padding(.leading, AppConstants.Spacing.xs)
+                .padding(8)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color(nsColor: NSColor.controlBackgroundColor))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color(nsColor: NSColor.separatorColor).opacity(0.12), lineWidth: 1)
+                        )
+                )
+                .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 6)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
-            .padding(.horizontal, AppConstants.Spacing.lg)
-            .padding(.vertical, AppConstants.Spacing.sm)
-            .background(
-                LinearGradient(colors: [AppColors.controlBackground.opacity(0.96), AppColors.professionalVioletSoft.opacity(0.55)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(AppColors.controlBorder.opacity(0.8), lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
         }
-        .frame(maxWidth: 260)
-    }
-
-    private var menuHeader: some View {
-        Label("Modelli disponibili", systemImage: "square.grid.2x2")
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(AppColors.subtleText)
-    }
-
-    private func modelBadge(for model: ChatModel) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(highlightColor(for: model))
-                .frame(width: 34, height: 34)
-            Image(systemName: iconName(for: model))
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Color.white)
-        }
+        .frame(maxWidth: 360)
     }
 
     private func highlightColor(for model: ChatModel) -> Color {
@@ -146,9 +119,130 @@ struct ModelPickerView: View {
     }
 }
 
+// MARK: - Riga singolo elemento aggiornata per evidenziare la selezione e hover
+struct ModelRow: View {
+    @EnvironmentObject private var uiState: UIState
+    
+    var model: ChatModel
+    var isSelected: Bool
+    var action: () -> Void
+
+    @State private var isHovering: Bool = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 12) {
+                // Indicatore verticale a sinistra quando selezionato
+                Rectangle()
+                    .fill(AppColors.accent)
+                    .frame(width: 4)
+                    .opacity(isSelected ? 1 : 0)
+                    .cornerRadius(2)
+
+                // Icona sinistra
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(nsColor: NSColor.windowBackgroundColor))
+                        .frame(width: 36, height: 36)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(nsColor: NSColor.separatorColor).opacity(0.08), lineWidth: 1)
+                        )
+
+                    Image(systemName: iconName(for: model))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(highlightColor(for: model))
+                }
+
+                // Titolo e sottotitolo
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.displayName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.primary)
+                    Text(model.description)
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                // Checkmark quando selezionato
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppColors.accent)
+                }
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 6)
+            .background(
+                Group {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(AppColors.accent.opacity(0.10))
+                    } else if isHovering {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color(nsColor: NSColor.selectedControlColor).opacity(0.06))
+                    } else {
+                        Color.clear
+                    }
+                }
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .contentShape(Rectangle())
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.12)) {
+                self.isHovering = hovering
+            }
+        }
+    }
+    
+    private func highlightColor(for model: ChatModel) -> Color {
+        let id = model.id.lowercased()
+        if id.contains("mini") {
+            return Color.orange
+        }
+        if id.contains("dall") {
+            return Color.pink
+        }
+        if id.contains("3.5") {
+            return Color.blue
+        }
+        return AppColors.accent
+    }
+
+    private func iconName(for model: ChatModel) -> String {
+        let id = model.id.lowercased()
+        if id.contains("mini") {
+            return "bolt"
+        }
+        if id.contains("dall") {
+            return "paintpalette"
+        }
+        if id.contains("3.5") {
+            return "bubble.left.and.sparkles"
+        }
+        return "sparkles"
+    }
+}
+
 struct ModelPickerView_Previews: PreviewProvider {
     static var previews: some View {
-        ModelPickerView(selectedModelId: UIState().availableModels.first?.id ?? "") { _ in }
-            .environmentObject(UIState())
+        Group {
+            ModelPickerView(selectedModelId: UIState().availableModels.first?.id ?? "") { _ in }
+                .environmentObject(UIState())
+                .padding(24)
+                .frame(width: 420)
+                .previewDisplayName("Light")
+            
+            ModelPickerView(selectedModelId: UIState().availableModels.first?.id ?? "") { _ in }
+                .environmentObject(UIState())
+                .padding(24)
+                .frame(width: 420)
+                .preferredColorScheme(.dark)
+                .previewDisplayName("Dark")
+        }
     }
 }

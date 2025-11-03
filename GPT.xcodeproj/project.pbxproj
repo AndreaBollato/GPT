@@ -60,9 +60,6 @@
 			);
 			dependencies = (
 			);
-			fileSystemSynchronizedGroups = (
-				56739D742EB7E08500122719 /* GPT */,
-			);
 			name = GPT;
 			packageProductDependencies = (
 			);

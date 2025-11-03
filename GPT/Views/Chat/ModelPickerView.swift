@@ -90,7 +90,7 @@ struct ModelPickerView: View {
             // Menù custom
             if isOpen {
                 VStack(spacing: 0) {
-                    ForEach(uiState.availableModels) { model in
+                    ForEach(Array(uiState.availableModels.enumerated()), id: \.element.id) { index, model in
                         ModelRow(model: model,
                                  isSelected: model.id == selectedModelId) {
                             withAnimation(.easeInOut(duration: 0.12)) {
@@ -99,7 +99,7 @@ struct ModelPickerView: View {
                             }
                         }
                         .background(Color.clear)
-                        if model.id != uiState.availableModels.last?.id {
+                        if index < uiState.availableModels.count - 1 {
                             Divider()
                                 .padding(.leading, 56)
                         }
@@ -139,8 +139,8 @@ struct ModelRow: View {
                 Rectangle()
                     .fill(AppColors.accent)
                     .frame(width: 4)
-                    .opacity(isSelected ? 1 : 0)
                     .cornerRadius(2)
+                    .opacity(isSelected ? 1 : 0)
 
                 // Icona sinistra
                 ZStack {
@@ -194,7 +194,6 @@ struct ModelRow: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
-        .contentShape(Rectangle())
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.12)) {
                 self.isHovering = hovering

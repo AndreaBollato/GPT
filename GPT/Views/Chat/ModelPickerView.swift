@@ -1,5 +1,36 @@
 import SwiftUI
 
+// MARK: - ChatModel Helper Extensions
+extension ChatModel {
+    var highlightColor: Color {
+        let id = self.id.lowercased()
+        if id.contains("mini") {
+            return Color.orange
+        }
+        if id.contains("dall") {
+            return Color.pink
+        }
+        if id.contains("3.5") {
+            return Color.blue
+        }
+        return AppColors.accent
+    }
+
+    var iconName: String {
+        let id = self.id.lowercased()
+        if id.contains("mini") {
+            return "bolt"
+        }
+        if id.contains("dall") {
+            return "paintpalette"
+        }
+        if id.contains("3.5") {
+            return "bubble.left.and.sparkles"
+        }
+        return "sparkles"
+    }
+}
+
 struct ModelPickerView: View {
     @EnvironmentObject private var uiState: UIState
 
@@ -89,34 +120,6 @@ struct ModelPickerView: View {
         }
         .frame(maxWidth: 360)
     }
-
-    private func highlightColor(for model: ChatModel) -> Color {
-        let id = model.id.lowercased()
-        if id.contains("mini") {
-            return Color.orange
-        }
-        if id.contains("dall") {
-            return Color.pink
-        }
-        if id.contains("3.5") {
-            return Color.blue
-        }
-        return AppColors.accent
-    }
-
-    private func iconName(for model: ChatModel) -> String {
-        let id = model.id.lowercased()
-        if id.contains("mini") {
-            return "bolt"
-        }
-        if id.contains("dall") {
-            return "paintpalette"
-        }
-        if id.contains("3.5") {
-            return "bubble.left.and.sparkles"
-        }
-        return "sparkles"
-    }
 }
 
 // MARK: - Riga singolo elemento aggiornata per evidenziare la selezione e hover
@@ -149,9 +152,9 @@ struct ModelRow: View {
                                 .stroke(Color(nsColor: NSColor.separatorColor).opacity(0.08), lineWidth: 1)
                         )
 
-                    Image(systemName: iconName(for: model))
+                    Image(systemName: model.iconName)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(highlightColor(for: model))
+                        .foregroundColor(model.highlightColor)
                 }
 
                 // Titolo e sottotitolo
@@ -197,34 +200,6 @@ struct ModelRow: View {
                 self.isHovering = hovering
             }
         }
-    }
-    
-    private func highlightColor(for model: ChatModel) -> Color {
-        let id = model.id.lowercased()
-        if id.contains("mini") {
-            return Color.orange
-        }
-        if id.contains("dall") {
-            return Color.pink
-        }
-        if id.contains("3.5") {
-            return Color.blue
-        }
-        return AppColors.accent
-    }
-
-    private func iconName(for model: ChatModel) -> String {
-        let id = model.id.lowercased()
-        if id.contains("mini") {
-            return "bolt"
-        }
-        if id.contains("dall") {
-            return "paintpalette"
-        }
-        if id.contains("3.5") {
-            return "bubble.left.and.sparkles"
-        }
-        return "sparkles"
     }
 }
 

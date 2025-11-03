@@ -326,9 +326,6 @@ final class UIState: ObservableObject {
             
             setPhase(.streaming, for: convId)
             
-            // Add a small delay to ensure the UI updates before the network request
-            try? await Task.sleep(nanoseconds: 250_000_000) // 0.25 seconds
-
             // Stream reply
             await chatService.streamReply(
                 conversationId: convId,

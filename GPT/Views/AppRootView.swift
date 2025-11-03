@@ -19,9 +19,8 @@ struct AppRootView: View {
                 SidebarView(searchFocus: $searchFocused)
             } detail: {
                 Group {
-                    if let selected = uiState.selectedConversationID,
-                       let conversation = uiState.conversation(with: selected) {
-                        ChatView(conversation: conversation, onSearchTapped: { searchFocused = true })
+                    if let selected = uiState.selectedConversationID {
+                        ChatView(conversationID: selected, onSearchTapped: { searchFocused = true })
                     } else {
                         HomeView(onSearchTapped: { searchFocused = true })
                     }

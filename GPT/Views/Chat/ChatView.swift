@@ -95,13 +95,10 @@ struct ChatView: View {
             .onChange(of: conversation.messages.count) {
                 scrollToBottom(proxy: proxy)
             }
-            .onChange(of: requestPhase) { _ in
+            .onChange(of: requestPhase) {
                 if requestPhase.isInFlight {
                     scrollToBottom(proxy: proxy)
                 }
-            }
-            .overlay(alignment: .top) {
-                requestOverlay
             }
         }
     }
@@ -128,41 +125,7 @@ struct ChatView: View {
         }
     }
 
-    @ViewBuilder
-    private var requestOverlay: some View {
-        switch requestPhase {
-        case .sending:
-            overlayContent(text: "Richiesta in corso...", tint: AppColors.warning)
-        case .streaming:
-            overlayContent(text: "Streaming della risposta...", tint: AppColors.accent)
-        case .error, .idle:
-            EmptyView()
-        }
-    }
 
-    private func overlayContent(text: String, tint: Color) -> some View {
-        HStack(spacing: AppConstants.Spacing.sm) {
-            ProgressView()
-                .progressViewStyle(.circular)
-                .controlSize(.small)
-                .tint(tint)
-            Text(text)
-                .font(AppTypography.badge)
-                .foregroundColor(AppColors.subtleText)
-        }
-        .padding(.horizontal, AppConstants.Spacing.lg)
-        .padding(.vertical, AppConstants.Spacing.sm)
-        .background(
-            Capsule(style: .continuous)
-                .fill(AppColors.controlBackground.opacity(0.95))
-        )
-        .overlay(
-            Capsule(style: .continuous)
-                .stroke(tint.opacity(0.35), lineWidth: 1)
-        )
-        .shadow(color: tint.opacity(0.15), radius: 12, x: 0, y: 6)
-        .padding(.top, AppConstants.Spacing.lg)
-    }
 }
 
 // struct ChatView_Previews: PreviewProvider {

@@ -3,8 +3,6 @@
 
 Goal: I’d like to have some kind of notification or visual feedback — for example, when I send a message, there should be an animation indicating that the request to Python is being processed, and if any issue occurs during the communication, it should display an error message or warning.
 
-
-
 Some ideas, buf **fix all you need**:
 
 1. Stabilize remote state in `GPT/ViewModels/UIState.swift`
@@ -26,12 +24,6 @@ Some ideas, buf **fix all you need**:
 
 - Manual build & run: send message with backend up (see animation) and with backend down (see banner + inline error).
 - Adjust documentation snippets if needed to reflect the new UX.
-
-
-
-
-
-
 
 TODO
 

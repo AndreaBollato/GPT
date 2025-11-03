@@ -148,7 +148,6 @@ extension MessageDTO {
             role: role,
             text: text,
             createdAt: createdAt,
-            isLoading: false,
             isPinned: isPinned ?? false,
             isEdited: isEdited ?? false
         )

@@ -18,30 +18,34 @@ enum MessageRole: String, Codable, CaseIterable, Hashable {
 }
 
 struct Message: Identifiable, Hashable, Codable {
+    enum Status: Hashable, Codable {
+        case pending
+        case streaming
+        case complete
+        case error(String)
+    }
+
     var id: UUID = UUID()
     var role: MessageRole
     var text: String
+    var status: Status = .complete
     var createdAt: Date = Date()
-    var isLoading: Bool = false
     var isPinned: Bool = false
     var isEdited: Bool = false
-    var errorDescription: String? = nil
 
     init(id: UUID = UUID(),
          role: MessageRole,
          text: String,
+         status: Status = .complete,
          createdAt: Date = Date(),
-         isLoading: Bool = false,
          isPinned: Bool = false,
-         isEdited: Bool = false,
-         errorDescription: String? = nil) {
+         isEdited: Bool = false) {
         self.id = id
         self.role = role
         self.text = text
+        self.status = status
         self.createdAt = createdAt
-        self.isLoading = isLoading
         self.isPinned = isPinned
         self.isEdited = isEdited
-        self.errorDescription = errorDescription
     }
 }

@@ -6,7 +6,10 @@ struct MessageRowView: View {
     @State private var isHovering: Bool = false
 
     private var isUser: Bool { message.role.isUser }
-    private var isError: Bool { message.errorDescription != nil }
+    private var isError: Bool {
+        if case .error = message.status { return true }
+        return false
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: AppConstants.Spacing.md) {
@@ -28,19 +31,15 @@ struct MessageRowView: View {
     private var bubble: some View {
         VStack(alignment: isUser ? .trailing : .leading, spacing: AppConstants.Spacing.xs) {
             Group {
-                if message.isLoading {
+                switch message.status {
+                case .pending:
                     loadingContent
-                } else if let error = message.errorDescription {
-                    errorContent(text: error)
-                } else if message.role.isAssistant || message.role == .system {
-                    MarkdownMessageView(text: message.text)
-                        .frame(maxWidth: AppConstants.Layout.messageMaxWidth, alignment: .leading)
-                } else {
-                    Text(message.text)
-                        .font(AppTypography.messageBody)
-                        .foregroundColor(.primary)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: AppConstants.Layout.messageMaxWidth, alignment: .leading)
+                case .streaming:
+                    streamingContent
+                case .complete:
+                    completeContent
+                case .error(let errorMessage):
+                    errorContent(text: errorMessage)
                 }
             }
             .padding(AppConstants.Spacing.lg)
@@ -96,6 +95,26 @@ struct MessageRowView: View {
                 .foregroundColor(AppColors.subtleText)
         }
         .frame(maxWidth: AppConstants.Layout.messageMaxWidth, alignment: .leading)
+    }
+
+    private var streamingContent: some View {
+        MarkdownMessageView(text: message.text)
+            .frame(maxWidth: AppConstants.Layout.messageMaxWidth, alignment: .leading)
+    }
+
+    private var completeContent: some View {
+        Group {
+            if message.role.isAssistant || message.role == .system {
+                MarkdownMessageView(text: message.text)
+                    .frame(maxWidth: AppConstants.Layout.messageMaxWidth, alignment: .leading)
+            } else {
+                Text(message.text)
+                    .font(AppTypography.messageBody)
+                    .foregroundColor(.primary)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: AppConstants.Layout.messageMaxWidth, alignment: .leading)
+            }
+        }
     }
 
     private func errorContent(text: String) -> some View {

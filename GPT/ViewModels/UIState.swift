@@ -262,7 +262,7 @@ final class UIState: ObservableObject {
         // Local store fallback
         guard let store = store else { return conversationID }
         
-        let message = Message(role: .user, text: trimmed)
+        let message = Message(role: .user, text: trimmed, status: .complete)
 
         if let id = conversationID,
            let conversation = store.updateConversation(id: id, mutate: { $0.messages.append(message) }) {
@@ -282,7 +282,7 @@ final class UIState: ObservableObject {
     private func submitRemote(text: String, conversationID: UUID?) async {
         guard let repo = repo, let chatService = chatService else { return }
         
-        let userMessage = Message(role: .user, text: text)
+        let userMessage = Message(role: .user, text: text, status: .complete)
         var targetConvId = conversationID
         var placeholderId: UUID?
         
@@ -315,7 +315,7 @@ final class UIState: ObservableObject {
             }
             
             // Add placeholder assistant message
-            let assistantPlaceholder = Message(id: UUID(), role: .assistant, text: "", isLoading: true)
+            let assistantPlaceholder = Message(role: .assistant, text: "", status: .pending)
             let currentPlaceholderId = assistantPlaceholder.id
             placeholderId = currentPlaceholderId
             if let index = conversations.firstIndex(where: { $0.id == convId }) {
@@ -326,6 +326,9 @@ final class UIState: ObservableObject {
             
             setPhase(.streaming, for: convId)
             
+            // Add a small delay to ensure the UI updates before the network request
+            try? await Task.sleep(nanoseconds: 250_000_000) // 0.25 seconds
+
             // Stream reply
             await chatService.streamReply(
                 conversationId: convId,
@@ -333,22 +336,26 @@ final class UIState: ObservableObject {
                 onDelta: { [weak self] delta in
                     guard let self = self else { return }
                     self.updateMessage(in: convId, messageId: currentPlaceholderId) { message in
+                        if case .pending = message.status {
+                            message.status = .streaming
+                        }
                         message.text += delta
-                        message.isLoading = false
                     }
                 },
                 onDone: { [weak self] in
                     guard let self = self else { return }
                     self.setPhase(.idle, for: convId)
                     self.updateMessage(in: convId, messageId: currentPlaceholderId) { message in
-                        message.isLoading = false
+                        message.status = .complete
                     }
                 },
                 onError: { [weak self] error in
                     guard let self = self else { return }
                     let friendly = self.friendlyErrorMessage(for: error)
                     self.setPhase(.error(message: friendly), for: convId)
-                    self.markAssistantMessageAsError(conversationId: convId, messageId: currentPlaceholderId, error: error, overrideMessage: friendly)
+                    self.updateMessage(in: convId, messageId: currentPlaceholderId) { message in
+                        message.status = .error(friendly)
+                    }
                     self.handleError(error)
                 }
             )
@@ -361,8 +368,10 @@ final class UIState: ObservableObject {
             if let convId = targetConvId {
                 setPhase(.error(message: friendly), for: convId)
             }
-            if let convId = targetConvId, let placeholderId {
-                markAssistantMessageAsError(conversationId: convId, messageId: placeholderId, error: error, overrideMessage: friendly)
+            if let convId = targetConvId, let placeholderId = placeholderId {
+                updateMessage(in: convId, messageId: placeholderId) { message in
+                    message.status = .error(friendly)
+                }
             }
             handleError(error)
         }
@@ -370,7 +379,7 @@ final class UIState: ObservableObject {
 
     func appendAssistantMessage(_ text: String, to conversationID: Conversation.ID) {
         guard let store = store else { return }
-        let message = Message(role: .assistant, text: text)
+        let message = Message(role: .assistant, text: text, status: .complete)
         guard let conversation = store.updateConversation(id: conversationID, mutate: { $0.messages.append(message) }) else {
             return
         }
@@ -582,14 +591,7 @@ final class UIState: ObservableObject {
         conversations[conversationIndex] = conversation
     }
 
-    private func markAssistantMessageAsError(conversationId: UUID, messageId: UUID, error: Error, overrideMessage: String? = nil) {
-        let messageText = overrideMessage ?? friendlyErrorMessage(for: error)
-        updateMessage(in: conversationId, messageId: messageId) { message in
-            message.isLoading = false
-            message.text = messageText
-            message.errorDescription = messageText
-        }
-    }
+
 
     private func removeLocal(id: Conversation.ID) {
         conversations.removeAll { $0.id == id }

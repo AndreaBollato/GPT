@@ -593,7 +593,11 @@ final class UIState: ObservableObject {
 
     private func removeLocal(id: Conversation.ID) {
         conversations.removeAll { $0.id == id }
-        requestPhaseById.removeValue(forKey: id)
+        if requestPhaseById[id] != nil {
+            var phases = requestPhaseById
+            phases.removeValue(forKey: id)
+            requestPhaseById = phases
+        }
         updateStreamingState()
     }
 

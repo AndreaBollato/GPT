@@ -871,7 +871,7 @@ struct SomeView: View {
 
 ### @Published e Reattività
 
-Le properties @Published in UIState triggherano automaticamente re-rendering:
+Le properties @Published in UIState triggerano automaticamente re-rendering:
 
 ```swift
 // In UIState

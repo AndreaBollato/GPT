@@ -423,5 +423,5 @@ Questa documentazione fornisce una guida completa all'applicazione GPT, coprendo
 Per domande specifiche o chiarimenti, consultate il documento pertinente o contattate il team di sviluppo.
 
 **Versione Documentazione**: 1.0  
-**Data**: Novembre 2025  
+**Data**: Novembre 2024  
 **Autore**: Team GPT  
